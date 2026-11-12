@@ -1,23 +1,24 @@
 # Lift Ledger
 
-A single-page training log that runs a five-session powerbuilding rotation (upper-body bias),
-works out the next session's loads from what was logged, and tracks estimated maxes, weekly
-hard sets per muscle and bodyweight.
+A single-page training log for a chest / back / legs / (arms) / chest / back / legs week.
+It opens on today's session, works out the next loads from what was logged, and tracks
+estimated maxes, weekly hard sets per muscle and bodyweight.
 
-- `app.html` is the whole app: program definition, progression rules, UI. It is also the file
-  published as the Claude artifact, where logs are saved to the artifact's cloud store.
-- `index.html` is the same app wrapped as a standalone page (`node build.js` regenerates it).
-  Served from any static host it saves logs in the browser on that device.
+Everything is in `index.html`. No build step and no server: logs are saved in the browser
+on the device, with Export and Import on the Data tab for backups.
+
+## Putting it online (GitHub Pages)
+
+Repository Settings → Pages → Source "Deploy from a branch" → pick the branch and `/ (root)` → Save.
+The page is then served at `https://evandamours.github.io/Lifting/`.
 
 ## Changing the program
 
-Everything lives at the top of the `<script>` in `app.html`:
+At the top of the `<script>` in `index.html`:
 
 - `EX` lists the exercises: rep range, load jump, rest time, muscles trained, starting estimate.
-- `ROT` is the rotation: which exercises and how many sets per session.
+- `ROT` is the week: which exercises and how many sets on each day (`dow` 0 = Sunday).
 - `BASE` holds the starting numbers from 12 Nov 2026.
-
-After editing, run `node build.js`.
 
 ## Progression rules
 
@@ -25,4 +26,4 @@ After editing, run `node build.js`.
   reaches the top of the range.
 - Bench and squat use a top set of 3–5 plus back-off sets at a fixed share of the top set.
 - A first set under the range lowers the load; three flat sessions trigger a reset.
-- Deload sessions are logged but never change the progression.
+- Deload-week sessions are logged but never change the progression.

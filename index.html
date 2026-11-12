@@ -4,7 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Lift Ledger</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Powerbuilding log: this week's sessions, automatic load progression and progress tracking.">
+<meta name="theme-color" content="#edf0f4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1218" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Lift Ledger">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap">
 <style>:root{color-scheme:light;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -58,9 +66,6 @@ h1, h2, h3, p { margin: 0; }
 .top-in { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 10px; }
 .brand { font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1; }
 .brand small { display: block; font-family: var(--font-body); font-weight: 500; font-size: 0.72rem; letter-spacing: 0.02em; text-transform: none; color: var(--ink-3); margin-top: 3px; }
-.sync { font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
-.sync.ok { background: var(--good-soft); color: var(--good); }
-.sync.warn { background: var(--warn-soft); color: var(--warn); }
 
 .wrap { padding-block: 16px 150px; }
 .view { display: flex; flex-direction: column; gap: 14px; }
@@ -211,7 +216,6 @@ textarea.io { width: 100%; min-height: 120px; border: 1px solid var(--line); bor
 <header class="top">
   <div class="top-in">
     <div class="brand">Lift Ledger<small>Powerbuilding, upper-body bias</small></div>
-    <span class="sync" id="sync" role="status">Starting</span>
   </div>
 </header>
 
@@ -266,8 +270,6 @@ var EX = {
               cue: 'Let the shoulder blade stretch forward at the bottom, then row to the hip. Log the reps per arm.' },
   cablerow: { n: 'Seated Cable Row', eq: 'cable', type: 'dp', range: [8, 12], inc: 5, rest: 120, rir: '1–2', start: 150, m: { back: 1, biceps: 0.5 },
               cue: 'Reach forward for a full stretch, pull to the lower ribs, keep the torso still.' },
-  dbpress:  { n: 'Seated Dumbbell Shoulder Press', eq: 'db', type: 'dp', range: [8, 12], inc: 5, rest: 120, rir: '1–2', start: 55, m: { shoulders: 1, triceps: 0.5 },
-              cue: 'Bench one notch back from upright. Lower to about ear height.' },
   latraise: { n: 'Lateral Raise', eq: 'db', type: 'dp', range: [12, 20], inc: 5, rest: 75, rir: '0–1', start: 20, m: { shoulders: 1 },
               cue: 'Cable or dumbbell. The rep range is wide on purpose, because the jump to the next weight is large. Take sets close to failure.' },
   reardelt: { n: 'Reverse Pec Deck', eq: 'machine', type: 'dp', range: [12, 20], inc: 5, rest: 60, rir: '0–1', start: 80, m: { shoulders: 1, back: 0.5 },
@@ -299,16 +301,20 @@ var EX = {
 };
 
 var ROT = [
-  { id: 'upperA', name: 'Upper A', tag: 'Heavy bench, rows, first arm dose',
-    items: [['bench', 4], ['dbrow', 3], ['incdb', 3], ['pulldown', 3], ['ohtri', 3], ['inccurl', 3], ['latraise', 2]] },
-  { id: 'lowerA', name: 'Lower A', tag: 'Squat strength, lower body kept strong',
-    items: [['squat', 3], ['legcurl', 3], ['legext', 2], ['calf', 3], ['crunch', 3]] },
-  { id: 'upperB', name: 'Upper B', tag: 'Incline and lats, higher reps',
-    items: [['incbb', 3], ['pulldown', 4], ['pecdeck', 3], ['cablerow', 3], ['latraise', 3], ['skull', 3], ['hammer', 3]] },
-  { id: 'arms', name: 'Arms & Delts', tag: 'Extra volume where you want size',
-    items: [['dbpress', 3], ['bayesian', 3], ['ohtri', 3], ['latraise', 4], ['preacher', 3], ['pushdown', 3], ['reardelt', 3]] },
-  { id: 'lowerB', name: 'Lower B', tag: 'Hinge day, short session',
-    items: [['rdl', 3], ['legext', 3], ['legcurl', 2], ['calf', 3], ['crunch', 3]] }
+  { id: 'chestA', dow: 1, name: 'Chest A', tag: 'Heavy bench, then chest volume, side delts and triceps',
+    items: [['bench', 4], ['incdb', 3], ['pecdeck', 2], ['latraise', 3], ['ohtri', 3]] },
+  { id: 'backA', dow: 2, name: 'Back A', tag: 'Pulldowns and heavy rows, rear delts, biceps',
+    items: [['pulldown', 4], ['dbrow', 3], ['reardelt', 3], ['inccurl', 3]] },
+  { id: 'legsA', dow: 3, name: 'Legs A', tag: 'Squat strength day',
+    items: [['squat', 3], ['legcurl', 3], ['legext', 3], ['calf', 3], ['crunch', 3]] },
+  { id: 'arms', dow: 4, opt: true, name: 'Arms & Delts', tag: 'Optional. Extra arm and delt volume, or take the rest day',
+    items: [['bayesian', 3], ['ohtri', 3], ['latraise', 4], ['preacher', 3], ['pushdown', 3]] },
+  { id: 'chestB', dow: 5, name: 'Chest B', tag: 'Incline focus, higher reps, more triceps',
+    items: [['incbb', 4], ['pecdeck', 3], ['latraise', 3], ['skull', 4]] },
+  { id: 'backB', dow: 6, name: 'Back B', tag: 'Rows first, then lats, rear delts, biceps',
+    items: [['cablerow', 4], ['pulldown', 3], ['reardelt', 2], ['hammer', 3]] },
+  { id: 'legsB', dow: 0, name: 'Legs B', tag: 'Hinge day',
+    items: [['rdl', 3], ['legext', 3], ['legcurl', 3], ['calf', 3], ['crunch', 3]] }
 ];
 
 /* Numbers from the Notes screenshot of 12 Nov 2026. They seed every starting load. */
@@ -333,7 +339,7 @@ var MUSCLES = [
   ['calves', 'Calves', 4, 10], ['abs', 'Abs', 4, 10]
 ];
 var VOL_MAX = 24;
-var DELOAD_AFTER = 25;   /* sessions, about five rotations */
+var DELOAD_AFTER = 33;   /* sessions, five to six weeks */
 
 /* ───────────── Helpers ───────────── */
 function $(s, r) { return (r || document).querySelector(s); }
@@ -368,7 +374,7 @@ function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === i
 
 /* ───────────── State and storage ───────────── */
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
-function defMeta() { return { next: 0, deloadLeft: 0, snooze: 0, bw: [], deleted: [], updatedAt: 0 }; }
+function defMeta() { return { deloadUntil: '', snooze: 0, bw: [], updatedAt: 0 }; }
 var S = { meta: defMeta(), sessions: [] };
 var drafts = {};
 var curSid = null, summary = null, chartEx = 'bench';
@@ -384,71 +390,17 @@ function validSession(s) { return s && typeof s.id === 'string' && typeof s.date
 function saveLocal() { lsSet(LS_KEY, S); }
 function saveDrafts() { lsSet(DRAFT_KEY, drafts); }
 
-/* Cloud copy (the artifact's database). Absent when the page is opened as a plain file or site. */
-var db = null, pending = 0, queue = Promise.resolve();
-function setSync(state) {
-  var el = $('#sync'); if (!el) return;
-  var map = { local: ['Saved on this device', ''], connecting: ['Connecting', ''], synced: ['Saved to cloud', 'ok'], saving: ['Saving', ''], offline: ['Cloud unreachable', 'warn'], error: ['Cloud save failed', 'warn'] };
-  var m = map[state] || map.local; el.textContent = m[0]; el.className = 'sync ' + m[1]; el.dataset.state = state;
-}
-function cloud(fn) {
-  if (!db) return;
-  pending++; setSync('saving');
-  queue = queue.then(fn).then(function () { pending--; if (!pending) setSync('synced'); }, function () { pending--; setSync('error'); });
-}
-function saveMeta() {
-  S.meta.updatedAt = Date.now(); saveLocal();
-  var m = clone(S.meta); cloud(function () { return db.doc('app/meta').set(m); });
-}
-function saveSession(s) {
-  saveLocal(); var c = clone(s);
-  cloud(function () { return db.collection('sessions').doc(c.id).set(c); });
-}
-function deleteSession(id) {
-  S.sessions = S.sessions.filter(function (s) { return s.id !== id; });
-  if (S.meta.deleted.indexOf(id) < 0) S.meta.deleted.push(id);
-  saveMeta();
-  cloud(function () { return db.collection('sessions').doc(id).delete(); });
-}
-function withTimeout(p, ms) { return new Promise(function (res, rej) { var t = setTimeout(function () { rej(new Error('timeout')); }, ms); p.then(function (v) { clearTimeout(t); res(v); }, function (e) { clearTimeout(t); rej(e); }); }); }
-function initCloud() {
-  if (!(window.claude && typeof window.claude.use === 'function')) { setSync('local'); return; }
-  setSync('connecting');
-  var store = null;
-  Promise.resolve().then(function () { return window.claude.use('db'); }).then(function (d) {
-    if (!d) { setSync('local'); return null; }
-    store = d;
-    return withTimeout(Promise.all([d.doc('app/meta').get(), d.collection('sessions').limit(1000).get()]), 12000);
-  }).then(function (res) {
-    if (!res) return;
-    db = store;
-    var cm = res[0].exists ? clone(res[0].data()) : null;
-    var cs = res[1].docs.map(function (x) { return clone(x.data()); }).filter(validSession);
-    var sigBefore = JSON.stringify(S);
-    mergeCloud(cm, cs);
-    if (!pending) setSync('synced');
-    if (JSON.stringify(S) !== sigBefore) { curSid = null; renderAll(); } else renderData();
-  }).catch(function () { setSync(store ? 'offline' : 'local'); });
-}
-function mergeCloud(cm, cs) {
-  var del = {};
-  (S.meta.deleted || []).concat((cm && cm.deleted) || []).forEach(function (id) { del[id] = 1; });
-  var byId = {}, inCloud = {};
-  cs.forEach(function (s) { inCloud[s.id] = 1; if (!del[s.id]) byId[s.id] = s; });
-  var push = [];
-  S.sessions.forEach(function (s) { if (del[s.id]) return; if (!byId[s.id]) { byId[s.id] = s; push.push(s); } });
-  var localNewer = !cm || (S.meta.updatedAt || 0) > (cm.updatedAt || 0);
-  var meta = localNewer ? S.meta : Object.assign(defMeta(), cm);
-  var delList = Object.keys(del);
-  var pushMeta = (localNewer && (S.meta.updatedAt || 0) > 0) || (cm && delList.length > ((cm.deleted || []).length));
-  meta.deleted = delList;
-  S.meta = meta;
-  S.sessions = Object.keys(byId).map(function (k) { return byId[k]; });
-  saveLocal();
-  push.forEach(function (s) { var c = clone(s); cloud(function () { return db.collection('sessions').doc(c.id).set(c); }); });
-  delList.forEach(function (id) { if (inCloud[id]) cloud(function () { return db.collection('sessions').doc(id).delete(); }); });
-  if (pushMeta) { var m = clone(S.meta); cloud(function () { return db.doc('app/meta').set(m); }); }
-}
+function saveMeta() { S.meta.updatedAt = Date.now(); saveLocal(); }
+function saveSession() { saveLocal(); }
+function deleteSession(id) { S.sessions = S.sessions.filter(function (s) { return s.id !== id; }); saveMeta(); }
+
+/* ───────────── Schedule ───────────── */
+var DOWF = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+function sidForDow(n) { for (var i = 0; i < ROT.length; i++) if (ROT[i].dow === n) return ROT[i].id; return ROT[0].id; }
+function loggedToday() { var t = todayISO(); return S.sessions.some(function (s) { return s.date === t; }); }
+function defaultSid() { var d = new Date(); if (loggedToday()) d.setDate(d.getDate() + 1); return sidForDow(d.getDay()); }
+function addDays(iso, n) { var d = dateOf(iso); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function isDeload() { return !!S.meta.deloadUntil && todayISO() <= S.meta.deloadUntil; }
 
 /* ───────────── Progression engine ───────────── */
 function sorted() { return S.sessions.slice().sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : (a.t || 0) - (b.t || 0); }); }
@@ -536,7 +488,7 @@ function hasData(d) { for (var k in d.rows) for (var i = 0; i < d.rows[k].length
 function getDraft(sid) {
   var d = drafts[sid];
   if (d && d.rows && hasData(d)) return d;
-  var sess = sessById(sid), deload = S.meta.deloadLeft > 0;
+  var sess = sessById(sid), deload = isDeload();
   d = { sid: sid, date: todayISO(), deload: deload, rows: {}, note: (d && d.note) || '', bw: '' };
   sess.items.forEach(function (it) {
     d.rows[it[0]] = plan(it[0], it[1], deload).rows.map(function (r) { return { k: r.k, w: String(r.w), r: '', rir: '', t: r.t, done: false }; });
@@ -586,8 +538,9 @@ function cardHTML(exId, n, d) {
 }
 function renderToday() {
   var el = $('#v-today');
-  if (!curSid) curSid = ROT[S.meta.next % ROT.length].id;
-  var sess = sessById(curSid), d = getDraft(curSid), nextId = ROT[S.meta.next % ROT.length].id;
+  var def = defaultSid(), doneToday = loggedToday();
+  if (!curSid) curSid = def;
+  var sess = sessById(curSid), d = getDraft(curSid);
   var html = '';
   if (summary) {
     html += '<div class="note-box good"><strong>' + esc(summary.title) + '</strong>' +
@@ -595,22 +548,22 @@ function renderToday() {
       (summary.ups.length ? '<span>Going up next time:</span><ul>' + summary.ups.map(function (u) { return '<li>' + esc(u) + '</li>'; }).join('') + '</ul>' : '<span>Loads hold next time. Chase one more rep on each lift.</span>') +
       '<div class="row-btns"><button type="button" class="btn" data-act="dismiss-summary">Got it</button></div></div>';
   }
-  if (!S.meta.deloadLeft && sinceDeload() >= DELOAD_AFTER && S.sessions.length >= (S.meta.snooze || 0)) {
-    html += '<div class="note-box warn"><strong>Deload is an option now</strong><span>' + sinceDeload() + ' sessions since your last easy week. If joints ache, sleep is off or lifts have stalled across the board, take one easy rotation. If you feel good, keep going.</span>' +
-      '<div class="row-btns"><button type="button" class="btn" data-act="deload-start">Start a deload rotation</button><button type="button" class="btn" data-act="deload-snooze">Not now</button></div></div>';
+  if (!isDeload() && sinceDeload() >= DELOAD_AFTER && S.sessions.length >= (S.meta.snooze || 0)) {
+    html += '<div class="note-box warn"><strong>Deload is an option now</strong><span>' + sinceDeload() + ' sessions since your last easy week. If joints ache, sleep is off or lifts have stalled across the board, take one easy week. If you feel good, keep going.</span>' +
+      '<div class="row-btns"><button type="button" class="btn" data-act="deload-start">Start a deload week</button><button type="button" class="btn" data-act="deload-snooze">Not now</button></div></div>';
   }
-  if (S.meta.deloadLeft > 0) {
-    html += '<div class="note-box warn"><strong>Deload rotation: ' + S.meta.deloadLeft + ' easy ' + (S.meta.deloadLeft === 1 ? 'session' : 'sessions') + ' left</strong><span>Half the sets, lighter loads. These sessions do not change your progression.</span>' +
+  if (isDeload()) {
+    html += '<div class="note-box warn"><strong>Deload week, through ' + fmtDate(S.meta.deloadUntil, true) + '</strong><span>Half the sets, lighter loads. These sessions do not change your progression.</span>' +
       '<div class="row-btns"><button type="button" class="btn" data-act="deload-end">End deload</button></div></div>';
   }
-  html += '<div class="hero"><p class="sub">' + (curSid === nextId ? 'Next session' : 'Chosen session') + (d.deload ? ' · deload' : '') + '</p>' +
+  html += '<div class="hero"><p class="sub">' + (curSid === def ? (doneToday ? 'Today is logged · up next, ' + DOWF[sess.dow] : 'Today · ' + DOWF[sess.dow]) : 'Chosen session · usually ' + DOWF[sess.dow]) + (d.deload ? ' · deload' : '') + '</p>' +
     '<h1 class="hero-title">' + esc(sess.name) + '</h1><p class="sub">' + esc(sess.tag) + '</p>' +
     '<div class="hero-row"><label class="small muted" for="sess-date">Date</label><input type="date" id="sess-date" value="' + esc(d.date) + '"></div>' +
     '<div class="picker" role="group" aria-label="Choose a session">' + ROT.map(function (r) {
-      return '<button type="button" class="pick" data-act="pick" data-sid="' + r.id + '" aria-pressed="' + (r.id === curSid ? 'true' : 'false') + '">' + (r.id === nextId ? '<span class="dot"></span>' : '') + esc(r.name) + '</button>';
+      return '<button type="button" class="pick" data-act="pick" data-sid="' + r.id + '" aria-pressed="' + (r.id === curSid ? 'true' : 'false') + '">' + (r.id === def ? '<span class="dot"></span>' : '') + DOW[r.dow] + ' · ' + esc(r.name) + '</button>';
     }).join('') + '</div></div>';
   if (!S.sessions.length && !summary) {
-    html += '<div class="note-box info"><strong>How this works</strong><span>Loads are set from your 12 Nov numbers. Enter the reps you get for each set and tap ✓ to start the rest timer. RIR is how many more reps you could have done. Finish the session and the next one is worked out for you.</span></div>';
+    html += '<div class="note-box info"><strong>How this works</strong><span>The app opens on the session for today and sets the loads from your 12 Nov numbers. Enter the reps you get for each set and tap ✓ to start the rest timer. RIR is how many more reps you could have done. Finish the session and the next one is worked out for you.</span></div>';
   }
   html += '<div id="today-list" class="view">' + sess.items.map(function (it) { return cardHTML(it[0], it[1], d); }).join('') + '</div>';
   html += '<div class="finish"><label for="sess-bw">Bodyweight today, lb (optional)<input id="sess-bw" type="number" inputmode="decimal" step="any" min="0" value="' + esc(d.bw || '') + '"></label>' +
@@ -632,9 +585,9 @@ function todayClick(e) {
   var act = b.dataset.act, d;
   if (act === 'pick') { curSid = b.dataset.sid; summary = null; renderToday(); window.scrollTo(0, 0); return; }
   if (act === 'dismiss-summary') { summary = null; renderToday(); return; }
-  if (act === 'deload-start') { S.meta.deloadLeft = ROT.length; saveMeta(); dropEmptyDrafts(); renderAll(); return; }
+  if (act === 'deload-start') { S.meta.deloadUntil = addDays(todayISO(), 6); saveMeta(); dropEmptyDrafts(); renderAll(); return; }
   if (act === 'deload-snooze') { S.meta.snooze = S.sessions.length + 5; saveMeta(); renderToday(); return; }
-  if (act === 'deload-end') { S.meta.deloadLeft = 0; saveMeta(); dropEmptyDrafts(); renderAll(); return; }
+  if (act === 'deload-end') { S.meta.deloadUntil = ''; saveMeta(); dropEmptyDrafts(); renderAll(); return; }
   if (act === 'finish') { finish(); return; }
   var card = b.closest('[data-card]'); if (!card) return;
   var exId = card.dataset.card; d = getDraft(curSid); var rows = d.rows[exId];
@@ -674,9 +627,6 @@ function finish() {
   var s = { id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), t: Date.now(), date: d.date || todayISO(), sid: sess.id, name: sess.name, deload: !!d.deload, entries: entries, note: (d.note || '').slice(0, 2000) };
   S.sessions.push(s);
   if (num(d.bw) > 0) addBW(s.date, num(d.bw), true);
-  var idx = 0; ROT.forEach(function (r, i) { if (r.id === sess.id) idx = i; });
-  S.meta.next = (idx + 1) % ROT.length;
-  if (d.deload && S.meta.deloadLeft > 0) S.meta.deloadLeft--;
   saveSession(s); saveMeta();
   delete drafts[curSid]; dropEmptyDrafts();
   var ups = [];
@@ -685,7 +635,7 @@ function finish() {
     if (p.w > before[e.ex].w) ups.push(EX[e.ex].n + ': ' + fmtW(before[e.ex].w) + ' → ' + fmtW(p.w) + ' lb');
   });
   summary = { title: sess.name + ' saved for ' + fmtDate(s.date, true) + '.', prs: prs, ups: ups };
-  curSid = ROT[S.meta.next].id;
+  curSid = null;
   stopTimer();
   renderAll(); window.scrollTo(0, 0);
 }
@@ -772,9 +722,9 @@ function volumeLast7() {
   });
   return out;
 }
-function volumePlanned() {
+function volumePlanned(withOptional) {
   var out = {};
-  ROT.forEach(function (r) { r.items.forEach(function (it) { var m = EX[it[0]].m; for (var k in m) out[k] = (out[k] || 0) + m[k] * it[1]; }); });
+  ROT.forEach(function (r) { if (r.opt && !withOptional) return; r.items.forEach(function (it) { var m = EX[it[0]].m; for (var k in m) out[k] = (out[k] || 0) + m[k] * it[1]; }); });
   return out;
 }
 
@@ -797,14 +747,14 @@ function renderProgress() {
     '<details class="how"><summary>Show as table</summary><div class="scroll-x"><table class="data"><thead><tr><th>Date</th><th>Best set</th><th>Est. max</th></tr></thead><tbody>' +
     sr.slice().reverse().map(function (p) { return '<tr><td>' + esc(p.d) + '</td><td>' + esc(p.label) + '</td><td>' + Math.round(p.y) + ' lb</td></tr>'; }).join('') + '</tbody></table></div></details></div>';
 
-  var v7 = volumeLast7(), vp = volumePlanned();
+  var v7 = volumeLast7(), vp = volumePlanned(false);
   html += '<h2 class="h-sec">Hard sets, last 7 days</h2><div class="card"><div class="vol">' + MUSCLES.map(function (mu) {
     var a = v7[mu[0]] || 0, p = vp[mu[0]] || 0, state = a < mu[2] ? 'below' : a > mu[3] ? 'above' : 'in zone';
-    return '<div class="vol-row" title="' + mu[1] + ': ' + a + ' sets in the last 7 days, target ' + mu[2] + ' to ' + mu[3] + ', one rotation gives ' + p + '">' +
+    return '<div class="vol-row" title="' + mu[1] + ': ' + a + ' sets in the last 7 days, target ' + mu[2] + ' to ' + mu[3] + ', the plan gives ' + p + '">' +
       '<span>' + mu[1] + '</span><div class="vol-track"><div class="vol-zone" style="left:' + (mu[2] / VOL_MAX * 100) + '%;width:' + ((mu[3] - mu[2]) / VOL_MAX * 100) + '%"></div>' +
       '<div class="vol-bar" style="width:' + Math.min(100, a / VOL_MAX * 100) + '%"></div><div class="vol-tick" style="left:calc(' + Math.min(100, p / VOL_MAX * 100) + '% - 1px)"></div></div>' +
       '<span class="vol-val"><b>' + (Math.round(a * 10) / 10) + '</b> ' + state + '</span></div>';
-  }).join('') + '</div><div class="legend"><span><i class="lg-bar"></i>Your last 7 days</span><span><i class="lg-zone"></i>Target zone</span><span><i class="lg-tick"></i>One full rotation</span></div>' +
+  }).join('') + '</div><div class="legend"><span><i class="lg-bar"></i>Your last 7 days</span><span><i class="lg-zone"></i>Target zone</span><span><i class="lg-tick"></i>The plan, 6 days</span></div>' +
   '<p class="small muted">A set that trains the muscle directly counts as 1, indirectly as 0.5 (a row is half a set for biceps). Upper-body zones are 10–20 sets a week. Leg zones are set lower on purpose.</p></div>';
 
   var bw = S.meta.bw || [];
@@ -844,19 +794,19 @@ function progressClick(e) {
 
 /* ───────────── Program ───────────── */
 function renderProgram() {
-  var el = $('#v-program'), vp = volumePlanned(), deload = S.meta.deloadLeft > 0, nextId = ROT[S.meta.next % ROT.length].id;
-  var html = '<h2 class="h-sec">The rotation</h2><p class="sub">Five sessions, run in order, 4 or 5 days a week. Take a rest day whenever you need one and pick up where you left off. A good week looks like Upper A, Lower A, rest, Upper B, Arms &amp; Delts, Lower B, rest.</p>';
+  var el = $('#v-program'), vp = volumePlanned(false), vpa = volumePlanned(true), deload = isDeload(), def = defaultSid();
+  var html = '<h2 class="h-sec">The week</h2><p class="sub">Your split, kept as it is: chest, back, legs, then chest, back, legs again, with Thursday as an arm day or a rest day. The A days early in the week are the heavier ones. The app opens on the session for today, and you can pick any other.</p>';
   html += ROT.map(function (r) {
-    return '<div class="card prog-sess"><h3>' + esc(r.name) + (r.id === nextId ? ' <span class="chip new">Next</span>' : '') + '</h3><p class="tagline">' + esc(r.tag) + '</p>' + r.items.map(function (it) {
+    return '<div class="card prog-sess"><h3>' + DOWF[r.dow] + ' · ' + esc(r.name) + (r.id === def ? ' <span class="chip new">Up next</span>' : '') + '</h3><p class="tagline">' + esc(r.tag) + '</p>' + r.items.map(function (it) {
       var p = plan(it[0], it[1], deload), ex = EX[it[0]];
       var load = ex.type === 'top' && !deload ? fmtW(p.rows[0].w) + ' / ' + fmtW(p.rows[1].w) + ' lb' : fmtW(p.rows[0].w) + ' lb';
       return '<div class="prog-row"><span>' + esc(ex.n) + '</span><span class="r-load">' + load + '</span><span class="r-sub">' + schemeText(it[0], it[1], deload) + (p.est ? ' · starting estimate' : '') + '</span></div>';
     }).join('') + '</div>';
   }).join('');
 
-  html += '<h2 class="h-sec">Sets per rotation</h2><div class="card scroll-x"><table class="data"><thead><tr><th>Muscle</th><th>Sets</th><th>Weekly target</th></tr></thead><tbody>' +
-    MUSCLES.map(function (m) { return '<tr><td>' + m[1] + '</td><td>' + (Math.round((vp[m[0]] || 0) * 10) / 10) + '</td><td>' + m[2] + '–' + m[3] + '</td></tr>'; }).join('') +
-    '</tbody></table></div><p class="small muted">Direct sets count 1, indirect sets 0.5. At 5 sessions a week one rotation is one week. At 4 a week you get about 80% of these numbers, which still keeps every upper-body muscle near or above 10.</p>';
+  html += '<h2 class="h-sec">Sets per week</h2><div class="card scroll-x"><table class="data"><thead><tr><th>Muscle</th><th>6 days</th><th>With arm day</th><th>Target</th></tr></thead><tbody>' +
+    MUSCLES.map(function (m) { return '<tr><td>' + m[1] + '</td><td>' + (Math.round((vp[m[0]] || 0) * 10) / 10) + '</td><td>' + (Math.round((vpa[m[0]] || 0) * 10) / 10) + '</td><td>' + m[2] + '–' + m[3] + '</td></tr>'; }).join('') +
+    '</tbody></table></div><p class="small muted">Direct sets count 1, indirect sets 0.5. The six main days already put every upper-body muscle inside its target. The Thursday arm day moves arms and delts toward the top of it.</p>';
 
   html += '<h2 class="h-sec">How the loads move</h2><div class="card"><dl class="rule">' +
     '<dt>Add reps</dt><dd>Keep the load and beat last time by a rep, staying inside the rep range.</dd>' +
@@ -866,19 +816,19 @@ function renderProgram() {
     '<dt>Stalled</dt><dd>Three sessions at one load with no added reps triggers a 7.5–10% reset so you can build back past the sticking point.</dd>' +
     '<dt>Your call</dt><dd>The weight boxes are editable. Whatever you log becomes the basis for next time.</dd></dl></div>';
 
-  html += '<h2 class="h-sec">Deload</h2><div class="card"><p class="sub">' + (deload ? 'Deload is on: ' + S.meta.deloadLeft + ' easy ' + (S.meta.deloadLeft === 1 ? 'session' : 'sessions') + ' left.' : 'Sessions since the last deload: ' + sinceDeload() + '. The app suggests an easy rotation after about ' + DELOAD_AFTER + '. Take it when you feel run down, skip it when you feel good.') + '</p>' +
-    '<div class="row-btns"><button type="button" class="btn" data-act="' + (deload ? 'deload-end' : 'deload-start') + '">' + (deload ? 'End deload' : 'Start a deload rotation') + '</button></div></div>';
+  html += '<h2 class="h-sec">Deload</h2><div class="card"><p class="sub">' + (deload ? 'Deload week is on, through ' + fmtDate(S.meta.deloadUntil, true) + '.' : 'Sessions since the last deload: ' + sinceDeload() + '. The app suggests an easy week after about ' + DELOAD_AFTER + ' sessions. Take it when you feel run down, skip it when you feel good.') + '</p>' +
+    '<div class="row-btns"><button type="button" class="btn" data-act="' + (deload ? 'deload-end' : 'deload-start') + '">' + (deload ? 'End deload' : 'Start a deload week') + '</button></div></div>';
 
   html += '<h2 class="h-sec">Why it is built this way</h2><div class="prose">' +
-    '<h3>Volume: 13–20 weekly sets for the upper body</h3><p>Muscle growth rises with weekly sets per muscle, with diminishing returns. Ten or more sets a week beat fewer in the Schoenfeld 2017 meta-analysis [1], 12–20 is the range Baz-Valle 2022 suggests for trained lifters [2], and the Pelland 2025 meta-regression shows growth still climbing with volume, more slowly each step [3]. Chest and back sit at 13–15, shoulders and arms at 18–20, where you asked for the bias.</p>' +
-    '<h3>Legs get enough to stay strong and no more</h3><p>Around 8 hard sets a week for quads and hamstrings. Size and strength are far cheaper to keep than to build: Bickel 2011 held muscle size on roughly a third of the original volume [4]. That frees recovery for the upper body, and it suits a hip that is still coming back.</p>' +
-    '<h3>Each muscle 2–3 times per rotation</h3><p>Frequency itself matters little once weekly volume is matched [5]. Spreading 18 arm sets across three sessions keeps each set higher quality than cramming them into one.</p>' +
+    '<h3>Volume: 13–20 weekly sets for the upper body</h3><p>Muscle growth rises with weekly sets per muscle, with diminishing returns. Ten or more sets a week beat fewer in the Schoenfeld 2017 meta-analysis [1], 12–20 is the range Baz-Valle 2022 suggests for trained lifters [2], and the Pelland 2025 meta-regression shows growth still climbing with volume, more slowly each step [3]. Chest and back get about 16 sets a week. Arms get about 13 from the six main days and about 19 when you train them on Thursday, which is where you asked for the bias.</p>' +
+    '<h3>Legs get enough to stay strong and no more</h3><p>Around 9 hard sets a week for quads and hamstrings, across two short leg days. Size and strength are far cheaper to keep than to build: Bickel 2011 held muscle size on roughly a third of the original volume [4]. That frees recovery for the upper body, and it suits a hip that is still coming back.</p>' +
+    '<h3>Each muscle twice a week</h3><p>Your split already trains everything twice a week, which is what the frequency research supports: once weekly volume is matched, extra frequency adds little, and twice is the simplest way to fit 16 quality sets [5]. Arms get a third exposure on Thursday. Monday and Wednesday carry the heavy bench and squat because that is when you are freshest for each.</p>' +
     '<h3>Heavy top sets for strength, moderate reps for size</h3><p>Growth is similar across a wide span of loads when sets are hard, but maximal strength responds best to heavy loading [6]. So bench and squat open with a top set of 3–5, and everything else lives between 6 and 20 reps.</p>' +
     '<h3>Close to failure, not always to failure</h3><p>Growth improves as sets end nearer to failure, while strength gains do not depend on it [7][8]. Big barbell lifts stop 1–2 reps short, where fatigue is costly. Machines, cables and curls go to 0–1.</p>' +
     '<h3>Rest long enough</h3><p>Resting more than a minute gives a small growth advantage, with little extra beyond about 90 seconds for size [9], and 3 minutes beat 1 minute for strength and size in trained men [10]. The timer uses 3 minutes on top-set lifts, 2–2.5 on other compounds and 60–90 seconds on isolation work.</p>' +
     '<h3>Train muscles at long lengths</h3><p>Overhead triceps extensions grew the triceps substantially more than pushdowns over 12 weeks [11], and seated leg curls beat lying ones for the hamstrings [12]. The same reasoning picks incline and behind-the-body curls, deep incline pressing and RDLs. The direct evidence is strongest for triceps and hamstrings.</p>' +
     '<h3>Progress by reps, then load</h3><p>Adding reps at a fixed load and adding load at fixed reps produced similar growth over 8 weeks [13]. Double progression uses both, and it works with 5 lb jumps on small lifts.</p>' +
-    '<h3>Deloads are optional</h3><p>A scheduled week off in the middle of a 9-week programme did not improve growth and slightly reduced strength gains in Coleman 2024 [14]. So the app offers a deload about every five rotations and leaves the choice to how you feel.</p>' +
+    '<h3>Deloads are optional</h3><p>A scheduled week off in the middle of a 9-week programme did not improve growth and slightly reduced strength gains in Coleman 2024 [14]. So the app offers a deload every five to six weeks and leaves the choice to how you feel. Training six or seven days in a row is fine while each muscle gets its two days of recovery, and Thursday is the day to drop when you feel run down.</p>' +
     '<h3>Outside the gym</h3><p>Protein at about 1.6 g per kg of bodyweight per day captures most of the benefit for muscle gain [15]. A small calorie surplus and 7 or more hours of sleep do the rest.</p>' +
     '<h3>References</h3><ol class="refs">' +
     '<li>Schoenfeld BJ, Ogborn D, Krieger JW. Dose-response relationship between weekly resistance training volume and increases in muscle mass. J Sports Sci. 2017.</li>' +
@@ -902,7 +852,7 @@ function renderProgram() {
 
 /* ───────────── Data ───────────── */
 function summaryText() {
-  var out = ['LIFT LEDGER LOG (all weights in lb), exported ' + todayISO(), 'Next session: ' + ROT[S.meta.next % ROT.length].name + (S.meta.deloadLeft ? ' (deload, ' + S.meta.deloadLeft + ' left)' : ''), ''];
+  var out = ['LIFT LEDGER LOG (all weights in lb), exported ' + todayISO(), 'Up next: ' + sessById(defaultSid()).name + (isDeload() ? ' (deload week)' : ''), ''];
   var ss = sorted().slice(-12);
   if (!ss.length) out.push('No sessions logged yet.');
   ss.forEach(function (s) {
@@ -915,16 +865,14 @@ function summaryText() {
   var bw = S.meta.bw || []; if (bw.length) out.push('', 'Bodyweight: ' + bw.slice(-8).map(function (b) { return b.d + ' ' + b.w; }).join(', '));
   out.push('', 'NEXT PRESCRIPTIONS');
   ROT.forEach(function (r) {
-    out.push(r.name);
+    out.push(DOWF[r.dow] + ', ' + r.name);
     r.items.forEach(function (it) { var p = plan(it[0], it[1], false); out.push('  ' + EX[it[0]].n + ': ' + fmtW(p.w) + ' lb, ' + schemeText(it[0], it[1], false) + ' [' + p.status + ']'); });
   });
   return out.join('\n');
 }
 function renderData() {
-  var el = $('#v-data'), st = ($('#sync').dataset.state) || 'local';
-  var where = st === 'synced' || st === 'saving' ? 'Your log is saved to this page\'s cloud store and to this device. It follows you to any device where you open this page signed in.'
-    : st === 'offline' || st === 'error' ? 'The cloud store could not be reached, so new entries are saved on this device and sent up the next time the page loads with a connection.'
-    : 'Your log is saved in this browser on this device. Use Export below to back it up or move it.';
+  var el = $('#v-data');
+  var where = 'Your log is saved in this browser, on this device. Add the page to your home screen so the phone keeps the data, and tap Export now and then to keep a backup. A backup can be imported on any other device.';
   el.innerHTML = '<h2 class="h-sec">Where your log lives</h2><p class="sub">' + where + '</p>' +
     '<h2 class="h-sec">Send your log to Claude</h2><p class="sub">Copies your last 12 sessions and the next prescriptions as text. Paste it into a chat when you want the program reviewed or changed.</p>' +
     '<div class="row-btns"><button type="button" class="btn primary" data-act="copy-summary">Copy training summary</button></div>' +
@@ -952,16 +900,15 @@ function dataClick(e) {
     var added = 0;
     d.sessions.filter(validSession).forEach(function (s) {
       if (have[s.id]) return;
-      S.meta.deleted = S.meta.deleted.filter(function (x) { return x !== s.id; });
       S.sessions.push(s); saveSession(s); added++;
     });
-    if (d.meta) { (d.meta.bw || []).forEach(function (x) { if (x && x.d && x.w) addBW(x.d, x.w, true); }); if (typeof d.meta.next === 'number' && hadNone) S.meta.next = d.meta.next % ROT.length; }
+    if (d.meta) { (d.meta.bw || []).forEach(function (x) { if (x && x.d && x.w) addBW(x.d, x.w, true); }); }
     saveMeta(); curSid = null; renderAll(); toast('Imported ' + added + ' sessions.'); return;
   }
   if (act === 'reset') {
     if (!confirmTap(b, 'Tap again to delete everything')) return;
     S.sessions.slice().forEach(function (s) { deleteSession(s.id); });
-    S.meta.next = 0; S.meta.deloadLeft = 0; S.meta.snooze = 0; S.meta.bw = []; saveMeta();
+    S.meta.deloadUntil = ''; S.meta.snooze = 0; S.meta.bw = []; saveMeta();
     drafts = {}; saveDrafts(); curSid = null; summary = null; renderAll(); toast('All logged data deleted.');
   }
 }
@@ -992,7 +939,6 @@ function start() {
   window.addEventListener('hashchange', showTab);
   var rz = null; window.addEventListener('resize', function () { clearTimeout(rz); rz = setTimeout(function () { if (!$('#v-progress').hidden) drawCharts(); }, 150); });
   try { if (navigator.wakeLock) { var lock = function () { navigator.wakeLock.request('screen').catch(function () {}); }; lock(); document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') lock(); }); } } catch (e) {}
-  initCloud();
 }
 start();
 })();
