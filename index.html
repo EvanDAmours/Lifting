@@ -135,12 +135,6 @@ details.how p { font-size: 0.88rem; color: var(--ink-2); margin-top: 6px; }
 .finish textarea, .finish input, .field { width: 100%; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 10px 12px; font-size: 16px; }
 .finish textarea { min-height: 64px; resize: vertical; }
 
-.timer { position: fixed; left: 0; right: 0; bottom: calc(52px + env(safe-area-inset-bottom, 0px)); z-index: 8; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-bottom: 8px; pointer-events: none; }
-.timer-in { max-width: 608px; margin: 0 auto; background: var(--ink); color: var(--bg); border-radius: 12px; padding: 8px 10px 8px 14px; display: flex; align-items: center; gap: 10px; pointer-events: auto; }
-.timer-clock { font-family: var(--font-display); font-weight: 700; font-size: 1.7rem; line-height: 1; font-variant-numeric: tabular-nums; min-width: 3.4rem; }
-.timer-label { flex: 1; min-width: 0; font-size: 0.82rem; opacity: 0.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.timer button { border: 1px solid currentColor; background: none; color: inherit; border-radius: 8px; padding: 6px 10px; font-size: 0.82rem; font-weight: 600; opacity: 0.9; }
-.timer.go .timer-in { background: var(--good); color: var(--surface); }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(120px + env(safe-area-inset-bottom, 0px)); z-index: 11; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 0.9rem; max-width: calc(100% - 32px); text-align: center; }
 
 .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -226,14 +220,6 @@ textarea.io { width: 100%; min-height: 120px; border: 1px solid var(--line); bor
   <section class="view" id="v-data" hidden></section>
 </main>
 
-<div class="timer" id="timer" hidden>
-  <div class="timer-in">
-    <span class="timer-clock" id="timer-clock">0:00</span>
-    <span class="timer-label" id="timer-label"></span>
-    <button type="button" id="timer-add">+30s</button>
-    <button type="button" id="timer-skip">Skip</button>
-  </div>
-</div>
 <div class="toast" id="toast" role="status" hidden></div>
 
 <nav class="nav" aria-label="Sections">
@@ -563,7 +549,7 @@ function renderToday() {
       return '<button type="button" class="pick" data-act="pick" data-sid="' + r.id + '" aria-pressed="' + (r.id === curSid ? 'true' : 'false') + '">' + (r.id === def ? '<span class="dot"></span>' : '') + DOW[r.dow] + ' · ' + esc(r.name) + '</button>';
     }).join('') + '</div></div>';
   if (!S.sessions.length && !summary) {
-    html += '<div class="note-box info"><strong>How this works</strong><span>The app opens on the session for today and sets the loads from your 12 Nov numbers. Enter the reps you get for each set and tap ✓ to start the rest timer. RIR is how many more reps you could have done. Finish the session and the next one is worked out for you.</span></div>';
+    html += '<div class="note-box info"><strong>How this works</strong><span>The app opens on the session for today and sets the loads from your 12 Nov numbers. Enter the reps you get for each set and tap ✓ to tick it off. RIR is how many more reps you could have done. Finish the session and the next one is worked out for you.</span></div>';
   }
   html += '<div id="today-list" class="view">' + sess.items.map(function (it) { return cardHTML(it[0], it[1], d); }).join('') + '</div>';
   html += '<div class="finish"><label for="sess-bw">Bodyweight today, lb (optional)<input id="sess-bw" type="number" inputmode="decimal" step="any" min="0" value="' + esc(d.bw || '') + '"></label>' +
@@ -597,7 +583,6 @@ function todayClick(e) {
     if (r.done && r.r === '') { r.r = String(r.t); $('[data-f="r"]', rowEl).value = r.r; }
     rowEl.classList.toggle('is-done', r.done); b.setAttribute('aria-pressed', r.done ? 'true' : 'false');
     saveDrafts();
-    if (r.done) startTimer(EX[exId].rest, EX[exId].n);
     return;
   }
   if (act === 'addset') { var l = rows[rows.length - 1]; rows.push({ k: l.k === 'top' ? 'bo' : l.k, w: l.w, r: '', rir: '', t: l.t, done: false }); }
@@ -636,7 +621,6 @@ function finish() {
   });
   summary = { title: sess.name + ' saved for ' + fmtDate(s.date, true) + '.', prs: prs, ups: ups };
   curSid = null;
-  stopTimer();
   renderAll(); window.scrollTo(0, 0);
 }
 function addBW(date, w, quiet) {
@@ -646,24 +630,6 @@ function addBW(date, w, quiet) {
   if (!quiet) saveMeta();
 }
 
-/* ───────────── Rest timer ───────────── */
-var tEnd = 0, tInt = null, tHide = null;
-function startTimer(sec, label) {
-  tEnd = Date.now() + sec * 1000; $('#timer-label').textContent = 'Rest · ' + label;
-  $('#timer').hidden = false; $('#timer').classList.remove('go');
-  clearInterval(tInt); clearTimeout(tHide); tInt = setInterval(tick, 250); tick();
-}
-function tick() {
-  var left = Math.ceil((tEnd - Date.now()) / 1000);
-  if (left <= 0) {
-    clearInterval(tInt); tInt = null;
-    $('#timer-clock').textContent = 'Go'; $('#timer').classList.add('go');
-    try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {}
-    tHide = setTimeout(stopTimer, 6000); return;
-  }
-  $('#timer-clock').textContent = Math.floor(left / 60) + ':' + pad(left % 60);
-}
-function stopTimer() { clearInterval(tInt); clearTimeout(tHide); tInt = null; $('#timer').hidden = true; }
 var toastT = null;
 function toast(msg) { var el = $('#toast'); el.textContent = msg; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { el.hidden = true; }, 3200); }
 
@@ -825,7 +791,7 @@ function renderProgram() {
     '<h3>Each muscle twice a week</h3><p>Your split already trains everything twice a week, which is what the frequency research supports: once weekly volume is matched, extra frequency adds little, and twice is the simplest way to fit 16 quality sets [5]. Arms get a third exposure on Thursday. Monday and Wednesday carry the heavy bench and squat because that is when you are freshest for each.</p>' +
     '<h3>Heavy top sets for strength, moderate reps for size</h3><p>Growth is similar across a wide span of loads when sets are hard, but maximal strength responds best to heavy loading [6]. So bench and squat open with a top set of 3–5, and everything else lives between 6 and 20 reps.</p>' +
     '<h3>Close to failure, not always to failure</h3><p>Growth improves as sets end nearer to failure, while strength gains do not depend on it [7][8]. Big barbell lifts stop 1–2 reps short, where fatigue is costly. Machines, cables and curls go to 0–1.</p>' +
-    '<h3>Rest long enough</h3><p>Resting more than a minute gives a small growth advantage, with little extra beyond about 90 seconds for size [9], and 3 minutes beat 1 minute for strength and size in trained men [10]. The timer uses 3 minutes on top-set lifts, 2–2.5 on other compounds and 60–90 seconds on isolation work.</p>' +
+    '<h3>Rest long enough</h3><p>Resting more than a minute gives a small growth advantage, with little extra beyond about 90 seconds for size [9], and 3 minutes beat 1 minute for strength and size in trained men [10]. Each exercise card shows its rest: 3 minutes on top-set lifts, 2–2.5 on other compounds and 60–90 seconds on isolation work.</p>' +
     '<h3>Train muscles at long lengths</h3><p>Overhead triceps extensions grew the triceps substantially more than pushdowns over 12 weeks [11], and seated leg curls beat lying ones for the hamstrings [12]. The same reasoning picks deep incline pressing and RDLs. The direct evidence is strongest for triceps and hamstrings, and both studies used mostly untrained people. For biceps it is mixed: incline and preacher curls seem to grow different regions of the muscle, so the plan uses several curl types and does not bet on one.</p>' +
     '<h3>Progress by reps, then load</h3><p>Adding reps at a fixed load and adding load at fixed reps produced similar growth over 8 weeks [13]. Double progression uses both, and it works with 5 lb jumps on small lifts.</p>' +
     '<h3>Deloads are optional</h3><p>A scheduled week off in the middle of a 9-week programme did not improve growth and slightly reduced strength gains in Coleman 2024 [14]. So the app offers a deload every five to six weeks and leaves the choice to how you feel. Training six or seven days in a row is fine while each muscle gets its two days of recovery, and Thursday is the day to drop when you feel run down.</p>' +
@@ -934,8 +900,6 @@ function start() {
   $('#v-progress').addEventListener('change', function (e) { if (e.target.id === 'chart-ex') { chartEx = e.target.value; renderProgress(); } });
   $('#v-program').addEventListener('click', todayClick);
   $('#v-data').addEventListener('click', dataClick);
-  $('#timer-add').addEventListener('click', function () { if (tInt) { tEnd += 30000; tick(); } });
-  $('#timer-skip').addEventListener('click', stopTimer);
   window.addEventListener('hashchange', showTab);
   var rz = null; window.addEventListener('resize', function () { clearTimeout(rz); rz = setTimeout(function () { if (!$('#v-progress').hidden) drawCharts(); }, 150); });
   try { if (navigator.wakeLock) { var lock = function () { navigator.wakeLock.request('screen').catch(function () {}); }; lock(); document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') lock(); }); } } catch (e) {}
