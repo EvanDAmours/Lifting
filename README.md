@@ -7,6 +7,12 @@ estimated maxes, weekly hard sets per muscle and bodyweight.
 Everything is in `index.html`. No build step and no server: logs are saved in the browser
 on the device, with backup files and restore on the Data tab.
 
+## The goal
+
+A 315 lb bench press. The bench appears twice a week (heavy top set on Monday, volume on
+Friday) and the Progress tab tracks the estimated max against 315 with a projected date.
+`GOAL` in `index.html` holds the target.
+
 ## Using it
 
 - Enter reps per set and tap Finish. Blank sets are left out (the app asks once before saving).

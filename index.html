@@ -150,6 +150,15 @@ details.how p { font-size: 0.88rem; color: var(--ink-2); margin-top: 6px; }
 
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(120px + env(safe-area-inset-bottom, 0px)); z-index: 11; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 0.9rem; max-width: calc(100% - 32px); text-align: center; }
 
+.goal-num { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }
+.goal-v { font-family: var(--font-display); font-weight: 700; font-size: 2.6rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.goal-v small { font-family: var(--font-body); font-size: 0.82rem; font-weight: 500; color: var(--ink-3); margin-left: 6px; }
+.goal-left { font-weight: 600; color: var(--accent); }
+.goal-track { position: relative; height: 12px; background: var(--surface-2); border-radius: 6px; margin-top: 4px; }
+.goal-fill { position: absolute; left: 0; top: 0; bottom: 0; min-width: 8px; background: var(--accent); border-radius: 6px; }
+.goal-mark { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--ink-2); border-radius: 1px; }
+.goal-scale { position: relative; display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.goal-was { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
 .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-width: 0; }
 .tile-k { font-size: 0.78rem; color: var(--ink-2); }
@@ -272,7 +281,9 @@ textarea.io { width: 100%; min-height: 120px; border: 1px solid var(--line); bor
    m = muscles trained; 1 is a direct set, 0.5 an indirect one (fractional counting). */
 var EX = {
   bench:    { n: 'Barbell Bench Press', eq: 'barbell', type: 'top', range: [3, 5], bo: { pct: 0.875, range: [6, 8] }, inc: 5, rest: 180, rir: '1–2', m: { chest: 1, triceps: 0.5, shoulders: 0.5 },
-              cue: 'One heavy top set for strength, stopped 1–2 reps short of failure. Back-off sets run at about 87.5% of the top set and carry most of the chest volume. Rest a full 3 minutes.' },
+              cue: 'The lift the 315 goal runs on. One heavy top set, stopped 1–2 reps short of failure, then back-off sets at about 87.5% of it. Rest a full 3 minutes. To test a max, work up in singles and log the best one as the top set: the app recalculates from it.' },
+  benchvol: { n: 'Bench Press, volume day', eq: 'barbell', type: 'dp', range: [5, 7], inc: 5, rest: 180, rir: '2', start: 205, m: { chest: 1, triceps: 0.5, shoulders: 0.5 },
+              cue: 'The second bench day of the week. Same grip and bar path as Monday, four crisp sets of 5–7 with 2 reps left in each. This day is for practice and muscle, so no grinding. When all four sets reach 7, the load goes up.' },
   squat:    { n: 'High-Bar Back Squat', eq: 'barbell', type: 'top', range: [3, 5], bo: { pct: 0.85, range: [5, 7] }, inc: 5, rest: 180, rir: '2', m: { quads: 1, glutes: 0.5 },
               cue: 'Coming back from the hip injury: keep the depth and tempo pain-free and leave 2 reps in reserve. If the hip complains, repeat the load next time instead of adding. Load only goes up once you log 5 clean reps.' },
   incbb:    { n: 'Incline Barbell Press', eq: 'barbell', type: 'dp', range: [6, 10], inc: 5, rest: 150, rir: '1–2', m: { chest: 1, triceps: 0.5, shoulders: 0.5 },
@@ -326,8 +337,8 @@ var ROT = [
     items: [['squat', 3], ['legcurl', 3], ['legext', 3], ['calf', 3], ['crunch', 3]] },
   { id: 'arms', dow: 4, opt: true, name: 'Arms & Delts', tag: 'Optional. Extra arm and delt volume, or take the rest day',
     items: [['dbcurl', 3], ['ohtri', 3], ['latraise', 4], ['preacher', 3], ['pushdown', 3]] },
-  { id: 'chestB', dow: 5, name: 'Chest B', tag: 'Incline focus, higher reps, more triceps',
-    items: [['incbb', 4], ['pecdeck', 3], ['latraise', 3], ['skull', 4]] },
+  { id: 'chestB', dow: 5, name: 'Chest B', tag: 'Second bench day for volume, then incline and triceps',
+    items: [['benchvol', 4], ['incbb', 3], ['pecdeck', 2], ['latraise', 3], ['skull', 4]] },
   { id: 'backB', dow: 6, name: 'Back B', tag: 'Rows first, then lats, rear delts, biceps',
     items: [['cablerow', 4], ['pulldown', 3], ['reardelt', 2], ['hammer', 3]] },
   { id: 'legsB', dow: 0, name: 'Legs B', tag: 'Hinge day',
@@ -390,7 +401,7 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
-var VERSION = '13 Nov 2026, build 4';
+var VERSION = '13 Nov 2026, build 5';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
 var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
 /* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
@@ -520,8 +531,8 @@ function plan(exId, n, deload) {
       var j = (top.rir >= 3) ? 2 : 1; w = top.w + ex.inc * j; status = 'up'; tg = [lo];
       note = fmtW(top.w) + ' × ' + top.r + ' reached the top of the range. Add ' + (ex.inc * j) + ' lb.';
     } else if (top.r < lo) {
-      w = Math.max(5, Math.min(top.w - ex.inc, rnd(top.w * 0.95))); status = 'down'; tg = [lo + 1];
-      note = top.r + (top.r === 1 ? ' rep is' : ' reps is') + ' under the ' + lo + '–' + hi + ' range. Drop about 5% and build back up.';
+      w = Math.max(5, Math.min(top.w - ex.inc, rnd(e1rm(top.w, top.r) / (1 + (lo + 1) / 30)))); status = 'down'; tg = [lo + 1];
+      note = fmtW(top.w) + ' × ' + top.r + ' is under the ' + lo + '–' + hi + ' range, so the load is recalculated from that set.';
     } else if (stuck) {
       w = rnd(top.w * 0.925); status = 'reset'; tg = [hi];
       note = 'Three sessions at ' + fmtW(top.w) + ' without an added rep. Reset about 7.5% and build back past it.';
@@ -665,6 +676,7 @@ function metaHTML(exId, d, p) {
     rows.forEach(function (r) { var w = num(r.w); if (w >= 45 && w <= 1500 && !seen[w]) { seen[w] = 1; pl.push(fmtW(w) + ' = ' + plates(w)); } });
     if (pl.length) meta.push('Per side: ' + pl.join(' | '));
   }
+  if (p && GOAL.ids.indexOf(exId) >= 0) { var gl = goalLine(); if (gl) meta.push(gl); }
   if (p && ex.type === 'top' && !d.deload && rows[0] && rows[0].k === 'top' && num(rows[0].w) >= 45) {
     var tw = num(rows[0].w); meta.push('Warm-up: bar × 10, ' + rnd(tw * 0.5) + ' × 5, ' + rnd(tw * 0.7) + ' × 3, ' + rnd(tw * 0.85) + ' × 1');
   }
@@ -958,9 +970,59 @@ function volumePlanned(withOptional) {
   return out;
 }
 
+/* ───────────── Bench goal ───────────── */
+var GOAL = { target: 315, ids: ['bench', 'benchvol'], was: 285 };
+function goalInfo() {
+  var pts = [], heaviest = 0, heavyDate = '';
+  GOAL.ids.forEach(function (id) {
+    hist(id).forEach(function (e) {
+      var b = 0;
+      e.sets.forEach(function (s) { if (s.r <= 10) b = Math.max(b, e1rm(s.w, s.r)); if (s.w > heaviest) { heaviest = s.w; heavyDate = e.date; } });
+      if (b) pts.push({ date: e.date, y: b });
+    });
+  });
+  if (!pts.length) return null;
+  pts.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  var start = pts[0].y, lastDate = pts[pts.length - 1].date, cut = addDays(lastDate, -27), cur = 0, pace = null;
+  pts.forEach(function (p) { if (p.date >= cut) cur = Math.max(cur, p.y); });   /* best of the last four weeks, so one flat day does not move it */
+  var win = pts.filter(function (p) { return p.date >= addDays(lastDate, -55); });
+  if (win.length >= 3) {
+    var t0 = dateOf(win[0].date).getTime(), xs = win.map(function (p) { return Math.round((dateOf(p.date).getTime() - t0) / 864e5); });
+    if (xs[xs.length - 1] >= 14) {
+      var mx = avg(xs), my = avg(win.map(function (p) { return p.y; })), sxy = 0, sxx = 0;
+      xs.forEach(function (x, i) { sxy += (x - mx) * (win[i].y - my); sxx += (x - mx) * (x - mx); });
+      if (sxx) pace = sxy / sxx * 7;   /* lb per week, straight-line fit */
+    }
+  }
+  return { start: start, cur: cur, heaviest: heaviest, heavyDate: heavyDate, pace: pace, left: Math.max(0, GOAL.target - Math.round(cur)) };
+}
+function goalLine() { var g = goalInfo(); return g ? 'Goal ' + GOAL.target + ': estimated max ' + Math.round(g.cur) + ', ' + (g.left > 0 ? Math.round(g.left) + ' lb to go' : 'ready to test') : ''; }
+function goalHTML() {
+  var g = goalInfo(); if (!g) return '';
+  var T = GOAL.target, base = Math.min(g.start, g.cur), pos = function (v) { return Math.max(0, Math.min(100, (v - base) / (T - base) * 100)); };
+  var w5 = Math.ceil(T / (1 + 5 / 30) / 5 - 1e-6) * 5, w3 = Math.ceil(T / (1 + 3 / 30) / 5 - 1e-6) * 5, line;
+  if (g.heaviest >= T) line = 'Done. You benched ' + fmtW(g.heaviest) + ' lb on ' + fmtDate(g.heavyDate, true) + '.';
+  else if (g.cur >= T) line = 'Your estimate says ' + T + ' is there. Test it on a Monday with a spotter: warm up, then work up in singles and log the best one as your top set.';
+  else if (g.pace == null) line = 'A projected date appears once you have logged three bench sessions across two weeks.';
+  else if (g.pace < 0.25 || g.left / g.pace > 156) line = 'No clear upward trend over the last 8 weeks yet (' + (g.pace < 0 ? '−' : '+') + Math.abs(g.pace).toFixed(1) + ' lb a week).';
+  else {
+    var d = new Date(); d.setDate(d.getDate() + Math.round(g.left / g.pace * 7));
+    line = 'At your pace over the last 8 weeks (+' + g.pace.toFixed(1) + ' lb a week) you get there around ' + MON[d.getMonth()] + ' ' + d.getFullYear() + '. Progress slows as the bar gets heavier, so read that as the earliest likely date.';
+  }
+  var was = GOAL.was > base + 4 && GOAL.was < T - 4;
+  return '<h2 class="h-sec">Goal: ' + T + ' lb bench</h2><div class="card goal">' +
+    '<div class="goal-num"><span class="goal-v">' + Math.round(g.cur) + '<small>lb estimated max</small></span><span class="goal-left">' + (g.left > 0 ? Math.round(g.left) + ' lb to go' : 'On target') + '</span></div>' +
+    '<div class="goal-track" role="img" aria-label="Estimated max ' + Math.round(g.cur) + ' of ' + T + ' pounds"><div class="goal-fill" style="width:' + pos(g.cur) + '%"></div>' + (was ? '<div class="goal-mark" style="left:' + pos(GOAL.was) + '%"></div>' : '') + '</div>' +
+    '<div class="goal-scale"><span>' + Math.round(base) + (base === g.start ? ' start' : '') + '</span>' + (was ? '<span class="goal-was" style="left:' + pos(GOAL.was) + '%">' + GOAL.was + ', your old best</span>' : '') + '<span>' + T + '</span></div>' +
+    '<p class="sub">' + line + '</p>' +
+    (g.cur < T ? '<p class="small muted">What it takes: a top set of ' + w5 + ' × 5 or ' + w3 + ' × 3 puts the estimate at ' + T + '. Monday\'s top set climbs there 5 lb at a time, and Friday\'s volume bench builds the muscle and practice behind it.</p>' : '') +
+    '<p class="small muted">Estimated max is your best bench set of the last four weeks, as weight × (1 + reps ÷ 30).</p></div>';
+}
+
 /* ───────────── Progress ───────────── */
 function renderProgress() {
   var el = $('#v-progress'), html = '';
+  html += goalHTML();
   html += '<h2 class="h-sec">Estimated one-rep max</h2><div class="tiles">' + ['bench', 'squat', 'incbb', 'rdl'].map(function (id) {
     var sr = seriesFor(id); if (!sr.length) return '';
     var cur = sr[sr.length - 1].y, d = cur - sr[0].y;
@@ -1105,7 +1167,7 @@ function historyClick(e) {
 /* ───────────── Program ───────────── */
 function renderProgram() {
   var el = $('#v-program'), vp = volumePlanned(false), vpa = volumePlanned(true), deload = isDeload(), def = defaultSid();
-  var html = '<h2 class="h-sec">The week</h2><p class="sub">Your split, kept as it is: chest, back, legs, then chest, back, legs again, with Thursday as an arm day or a rest day. The A days early in the week are the heavier ones. The app opens on the session for today, and you can pick any other.</p>';
+  var html = '<h2 class="h-sec">The week</h2><p class="sub">Your split, kept as it is: chest, back, legs, then chest, back, legs again, with Thursday as an arm day or a rest day. Both chest days start with the bench press: heavy on Monday, volume on Friday. The app opens on the session for today, and you can pick any other.</p>';
   html += ROT.map(function (r) {
     return '<div class="card prog-sess"><h3>' + DOWF[r.dow] + ' · ' + esc(r.name) + (r.id === def ? ' <span class="chip new">Up next</span>' : '') + '</h3><p class="tagline">' + esc(r.tag) + '</p>' + r.items.map(function (it) {
       var p = plan(it[0], it[1], deload), ex = EX[it[0]];
@@ -1122,7 +1184,7 @@ function renderProgram() {
     '<dt>Add reps</dt><dd>Keep the load and beat last time by a rep, staying inside the rep range.</dd>' +
     '<dt>Add load</dt><dd>When every set reaches the top of the range, the load goes up 5 lb (10 lb on RDL and calves) and reps restart at the low end.</dd>' +
     '<dt>Top sets</dt><dd>Bench and squat use one heavy set of 3–5. Log 5 and it goes up 5 lb. Log 5 with 3 or more in reserve and it goes up 10. Back-off sets follow the top set automatically.</dd>' +
-    '<dt>Missed</dt><dd>Fall under the range on the first set and the load is recalculated down from what you did.</dd>' +
+    '<dt>Missed</dt><dd>Fall under the range on the first set and the load is recalculated down from what you did. The same happens after a heavy single, so testing a max never breaks the plan.</dd>' +
     '<dt>Stalled</dt><dd>Three sessions at one load with no added reps triggers a 7.5–10% reset so you can build back past the sticking point.</dd>' +
     '<dt>Skipped</dt><dd>An exercise you skip, or a deload session, changes nothing. The next time you do the lift it picks up from your last real session.</dd>' +
     '<dt>Your call</dt><dd>The weight boxes are editable. Whatever you log becomes the basis for next time, and a saved session can be corrected on the History tab.</dd></dl></div>';
@@ -1131,9 +1193,10 @@ function renderProgram() {
     '<div class="row-btns"><button type="button" class="btn" data-act="' + (deload ? 'deload-end' : 'deload-start') + '">' + (deload ? 'End deload' : 'Start a deload week') + '</button></div></div>';
 
   html += '<h2 class="h-sec">Why it is built this way</h2><div class="prose">' +
-    '<h3>Volume: 13–20 weekly sets for the upper body</h3><p>Muscle growth rises with weekly sets per muscle, with diminishing returns. Ten or more sets a week beat fewer in the Schoenfeld 2017 meta-analysis [1], 12–20 is the range Baz-Valle 2022 suggests for trained lifters [2], and the Pelland 2026 meta-regression shows growth still climbing with volume, more slowly each step [3]. Chest and back get about 16 sets a week. Arms get about 13 from the six main days and about 19 when you train them on Thursday, which is where you asked for the bias.</p>' +
+    '<h3>Volume: 13–20 weekly sets for the upper body</h3><p>Muscle growth rises with weekly sets per muscle, with diminishing returns. Ten or more sets a week beat fewer in the Schoenfeld 2017 meta-analysis [1], 12–20 is the range Baz-Valle 2022 suggests for trained lifters [2], and the Pelland 2026 meta-regression shows growth still climbing with volume, more slowly each step [3]. Chest gets about 18 sets a week and back about 16. Arms get about 13 from the six main days and about 19 when you train them on Thursday, which is where you asked for the bias.</p>' +
     '<h3>Legs get enough to stay strong and no more</h3><p>Around 9 hard sets a week for quads and hamstrings, across two short leg days. Size and strength are far cheaper to keep than to build: Bickel 2011 held muscle size on roughly a third of the original volume [4]. That frees recovery for the upper body, and it suits a hip that is still coming back.</p>' +
     '<h3>Each muscle twice a week</h3><p>Your split already trains everything twice a week, which is what the frequency research supports: once weekly volume is matched, extra frequency adds little, and twice is the simplest way to fit 16 quality sets [5]. Arms get a third exposure on Thursday. Monday and Wednesday carry the heavy bench and squat because that is when you are freshest for each.</p>' +
+    '<h3>The road to a 315 bench</h3><p>Three things move a one-rep max: lifting heavy, lifting the same lift often, and carrying more muscle. Maximal strength responds best to heavy loading [6], so Monday opens with a top set of 3–5. Training a lift more often has a clear positive effect on strength in the largest analysis of the question [3], so the bench now appears twice a week. Strength does not need sets taken to failure [7], so both days leave reps in reserve and stay repeatable. The chest and triceps volume around it is there because a bigger muscle has a higher ceiling. Bodyweight matters too: your 285 came at about 180 lb, so log your weight and let it drift up slowly.</p>' +
     '<h3>Heavy top sets for strength, moderate reps for size</h3><p>Growth is similar across a wide span of loads when sets are hard, but maximal strength responds best to heavy loading [6]. So bench and squat open with a top set of 3–5, and everything else lives between 6 and 20 reps.</p>' +
     '<h3>Close to failure, not always to failure</h3><p>Growth improves as sets end nearer to failure, while strength gains do not depend on it [7][8]. Big barbell lifts stop 1–2 reps short, where fatigue is costly. Machines, cables and curls go to 0–1.</p>' +
     '<h3>Rest long enough</h3><p>Resting more than a minute gives a small growth advantage, with little extra beyond about 90 seconds for size [9], and 3 minutes beat 1 minute for strength and size in trained men [10]. Each exercise card shows its rest: 3 minutes on top-set lifts, 2–2.5 on other compounds and 60–90 seconds on isolation work.</p>' +
@@ -1163,7 +1226,7 @@ function renderProgram() {
 
 /* ───────────── Data ───────────── */
 function summaryText() {
-  var out = ['LIFT LEDGER LOG (all weights in lb), exported ' + todayISO(), 'Up next: ' + sessById(defaultSid()).name + (isDeload() ? ' (deload week)' : ''), ''];
+  var out = ['LIFT LEDGER LOG (all weights in lb), exported ' + todayISO(), goalLine(), 'Up next: ' + sessById(defaultSid()).name + (isDeload() ? ' (deload week)' : ''), ''];
   var ss = sorted().slice(-12);
   if (!ss.length) out.push('No sessions logged yet.');
   ss.forEach(function (s) {
