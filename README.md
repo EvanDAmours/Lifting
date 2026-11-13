@@ -40,5 +40,9 @@ At the top of the `<script>` in `index.html`:
 - Straight sets use double progression: add reps inside the range, add load when every set
   reaches the top of the range.
 - Bench and squat use a top set of 3–5 plus back-off sets at a fixed share of the top set.
-- A first set under the range lowers the load; three flat sessions trigger a reset.
+  The top set goes up at 5 reps, or earlier when reps plus reps-in-reserve show it was easy.
+- One rep short on a top set repeats the load once; a second or larger miss, or a heavy
+  single, sets the load from the best recent top set.
+- On other lifts a first set under the range lowers the load, except right after a jump,
+  where the new load is kept while reps build. Three flat sessions trigger a step back.
 - Deload-week sessions are logged but never change the progression.

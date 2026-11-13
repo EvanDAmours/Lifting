@@ -280,10 +280,10 @@ textarea.io { width: 100%; min-height: 120px; border: 1px solid var(--line); bor
    type 'dp'  = straight sets, double progression (add reps, then load).
    m = muscles trained; 1 is a direct set, 0.5 an indirect one (fractional counting). */
 var EX = {
-  bench:    { n: 'Barbell Bench Press', eq: 'barbell', type: 'top', range: [3, 5], bo: { pct: 0.875, range: [6, 8] }, inc: 5, rest: 180, rir: '1–2', m: { chest: 1, triceps: 0.5, shoulders: 0.5 },
-              cue: 'The lift the 315 goal runs on. One heavy top set, stopped 1–2 reps short of failure, then back-off sets at about 87.5% of it. Rest a full 3 minutes. To test a max, work up in singles and log the best one as the top set: the app recalculates from it.' },
+  bench:    { n: 'Barbell Bench Press', eq: 'barbell', type: 'top', range: [3, 5], bo: { pct: 0.925, range: [3, 5] }, inc: 5, rest: 180, rir: '1–2', m: { chest: 1, triceps: 0.5, shoulders: 0.5 },
+              cue: 'The lift the 315 goal runs on. One heavy top set, stopped 1–2 reps short of failure, then three back-off sets of 3–5 at about 92.5% of it, which should feel fast and leave 2–3 in reserve. Rest a full 3 minutes. Bench inside a rack with the safety arms set just below chest height, or use a spotter. To test a max, work up in singles and log the best one as the top set: the app recalculates from it.' },
   benchvol: { n: 'Bench Press, volume day', eq: 'barbell', type: 'dp', range: [5, 7], inc: 5, rest: 180, rir: '2', start: 205, m: { chest: 1, triceps: 0.5, shoulders: 0.5 },
-              cue: 'The second bench day of the week. Same grip and bar path as Monday, four crisp sets of 5–7 with 2 reps left in each. This day is for practice and muscle, so no grinding. When all four sets reach 7, the load goes up.' },
+              cue: 'The second bench day of the week. Same grip and bar path as Monday, four crisp sets of 5–7 with 2 reps left in each. This day is for practice and muscle, so no grinding. Set the safety arms here too. When all four sets reach 7, the load goes up.' },
   squat:    { n: 'High-Bar Back Squat', eq: 'barbell', type: 'top', range: [3, 5], bo: { pct: 0.85, range: [5, 7] }, inc: 5, rest: 180, rir: '2', m: { quads: 1, glutes: 0.5 },
               cue: 'Coming back from the hip injury: keep the depth and tempo pain-free and leave 2 reps in reserve. If the hip complains, repeat the load next time instead of adding. Load only goes up once you log 5 clean reps.' },
   incbb:    { n: 'Incline Barbell Press', eq: 'barbell', type: 'dp', range: [6, 10], inc: 5, rest: 150, rir: '1–2', m: { chest: 1, triceps: 0.5, shoulders: 0.5 },
@@ -335,10 +335,10 @@ var ROT = [
     items: [['pulldown', 4], ['dbrow', 3], ['reardelt', 3], ['inccurl', 3]] },
   { id: 'legsA', dow: 3, name: 'Legs A', tag: 'Squat strength day',
     items: [['squat', 3], ['legcurl', 3], ['legext', 3], ['calf', 3], ['crunch', 3]] },
-  { id: 'arms', dow: 4, opt: true, name: 'Arms & Delts', tag: 'Optional. Extra arm and delt volume, or take the rest day',
-    items: [['dbcurl', 3], ['ohtri', 3], ['latraise', 4], ['preacher', 3], ['pushdown', 3]] },
+  { id: 'arms', dow: 4, opt: true, name: 'Biceps & Delts', tag: 'Optional. No triceps work, so Friday\'s bench stays fresh. Or take the rest day',
+    items: [['dbcurl', 3], ['preacher', 3], ['latraise', 4]] },
   { id: 'chestB', dow: 5, name: 'Chest B', tag: 'Second bench day for volume, then incline and triceps',
-    items: [['benchvol', 4], ['incbb', 3], ['pecdeck', 2], ['latraise', 3], ['skull', 4]] },
+    items: [['benchvol', 4], ['incbb', 3], ['pecdeck', 2], ['latraise', 2], ['skull', 4], ['pushdown', 2]] },
   { id: 'backB', dow: 6, name: 'Back B', tag: 'Rows first, then lats, rear delts, biceps',
     items: [['cablerow', 4], ['pulldown', 3], ['reardelt', 2], ['hammer', 3]] },
   { id: 'legsB', dow: 0, name: 'Legs B', tag: 'Hinge day',
@@ -401,7 +401,7 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
-var VERSION = '13 Nov 2026, build 5';
+var VERSION = '13 Nov 2026, build 6';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
 var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
 /* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
@@ -525,17 +525,29 @@ function plan(exId, n, deload) {
     w = ex.start; status = 'new';
     note = 'Starting estimate. Adjust it today so the first set lands in the rep range with about 2 reps left. After that the app sets the load.';
   } else if (ex.type === 'top') {
-    var top = topOf(last);
+    var top = topOf(last), prev = h[h.length - 2], good = null, q;
+    for (q = h.length - 2; q >= Math.max(0, h.length - 4) && !good; q--) if (topOf(h[q]).r >= lo) good = topOf(h[q]);   /* last top set that was inside the range */
     var stuck = real.length === 3 && real.every(function (e) { return topOf(e).w === top.w; }) && top.r <= topOf(real[0]).r;
-    if (top.r >= hi) {
-      var j = (top.rir >= 3) ? 2 : 1; w = top.w + ex.inc * j; status = 'up'; tg = [lo];
-      note = fmtW(top.w) + ' × ' + top.r + ' reached the top of the range. Add ' + (ex.inc * j) + ' lb.';
+    var easy = top.r >= lo && top.rir != null && top.r + top.rir >= hi + 2;   /* reps done plus reps left says the range is already beaten */
+    if (top.r >= hi || easy) {
+      var j = (top.r >= hi && top.rir >= 3) ? 2 : 1; w = top.w + ex.inc * j; status = 'up'; tg = [lo];
+      note = top.r >= hi ? fmtW(top.w) + ' × ' + top.r + ' reached the top of the range. Add ' + (ex.inc * j) + ' lb.'
+                         : fmtW(top.w) + ' × ' + top.r + ' with ' + top.rir + ' in reserve was easier than planned. Add ' + ex.inc + ' lb.';
     } else if (top.r < lo) {
-      w = Math.max(5, Math.min(top.w - ex.inc, rnd(e1rm(top.w, top.r) / (1 + (lo + 1) / 30)))); status = 'down'; tg = [lo + 1];
-      note = fmtW(top.w) + ' × ' + top.r + ' is under the ' + lo + '–' + hi + ' range, so the load is recalculated from that set.';
+      var again = prev && topOf(prev).w === top.w && topOf(prev).r < lo;
+      if (top.r === lo - 1 && !again && (!good || top.w <= good.w + ex.inc)) {
+        w = top.w; status = 'hold'; tg = [lo];   /* one rep short, once, is a bad day and not a reason to lose weeks */
+        note = fmtW(top.w) + ' × ' + top.r + ' was one rep short. Take the same load again. A second miss lowers it.';
+      } else {
+        var best = 0; h.slice(-3).forEach(function (e) { var t = topOf(e); best = Math.max(best, e1rm(t.w, t.r)); });
+        w = rnd(best / (1 + (lo + 2) / 30));   /* the load your best recent top set predicts for the low end of the range with 2 in reserve */
+        w = (good && top.w > good.w) ? Math.max(w, good.w) : Math.min(w, top.w - ex.inc);
+        w = Math.max(5, w); status = w < top.w ? 'down' : 'hold'; tg = [lo + 1];
+        note = fmtW(top.w) + ' × ' + top.r + ' is under the ' + lo + '–' + hi + ' range, so the load is set from your best recent top set.';
+      }
     } else if (stuck) {
-      w = rnd(top.w * 0.925); status = 'reset'; tg = [hi];
-      note = 'Three sessions at ' + fmtW(top.w) + ' without an added rep. Reset about 7.5% and build back past it.';
+      w = Math.min(top.w - ex.inc, rnd(top.w * 0.95)); status = 'reset'; tg = [hi];
+      note = 'Three sessions at ' + fmtW(top.w) + ' without an added rep. Step back about 5% and build past it.';
     } else {
       w = top.w; status = 'hold'; tg = [Math.min(hi, top.r + 1)];
       note = 'Same load. Beat ' + top.r + (top.r === 1 ? ' rep' : ' reps') + ' on the top set.';
@@ -544,9 +556,17 @@ function plan(exId, n, deload) {
     var w0 = refW(last.sets), reps = repsAt(last, w0);
     var stuck2 = real.length === 3 && real.every(function (e) { return refW(e.sets) === w0; }) && reps[0] <= repsAt(real[0], w0)[0] && avg(reps) <= avg(repsAt(real[0], w0));
     var allTop = last.sets.every(function (s) { return (s.w === w0 && s.r >= hi) || (s.w > w0 && s.r >= lo); });
+    var pv = h[h.length - 2], pw = pv ? refW(pv.sets) : null, i;
+    var jumped = pv && pw < w0 && reps[0] >= Math.ceil(lo / 2);           /* first session after a load increase */
+    var building = pv && pw === w0 && avg(reps) > avg(repsAt(pv, w0));    /* same load, reps coming up */
     if (allTop) {
       w = w0 + ex.inc; status = 'up';
-      note = 'Every set reached ' + hi + ' reps at ' + fmtW(w0) + '. Add ' + ex.inc + ' lb and start again from the low end of the range.';
+      note = 'Every set reached ' + hi + ' reps at ' + fmtW(w0) + '. Add ' + ex.inc + ' lb and start again from the low end of the range.' +
+        (ex.inc / w0 > (1 + hi / 30) / (1 + lo / 30) - 1 ? ' That is a big step for this lift: if your gym has ' + fmtW(w0 + ex.inc / 2) + ' lb, use it.' : '');
+    } else if (reps[0] < lo && !last.base && (jumped || building)) {
+      w = w0; status = 'hold';   /* small lifts cannot always land inside the range right after a jump: stay and build instead of bouncing back */
+      for (i = 0; i < n; i++) tg.push(Math.min(hi, (i < reps.length ? reps[i] : reps[reps.length - 1]) + 1));
+      note = (jumped ? 'A little under the range after the jump, which is expected with a step this size.' : 'Still under the range but climbing.') + ' Stay at ' + fmtW(w0) + ' and add reps.';
     } else if (reps[0] < lo) {
       w = Math.max(5, Math.min(w0 - ex.inc, rnd(e1rm(w0, reps[0]) / (1 + (lo + 2) / 30))));
       if (last.base) { status = 'new'; note = 'Load worked out from your ' + fmtW(w0) + ' × ' + reps[0] + ' so that ' + lo + '–' + hi + ' reps is in reach.'; }
@@ -556,7 +576,7 @@ function plan(exId, n, deload) {
       note = 'Three sessions at ' + fmtW(w0) + ' without more reps. Reset about 10% and rebuild, or swap in a similar exercise.';
     } else {
       w = w0; status = 'hold';
-      for (var i = 0; i < n; i++) tg.push(i < reps.length ? Math.min(hi, reps[i] + 1) : Math.max(lo, Math.min(hi, reps[reps.length - 1])));
+      for (i = 0; i < n; i++) tg.push(i < reps.length ? Math.min(hi, reps[i] + 1) : Math.max(lo, Math.min(hi, reps[reps.length - 1])));
       note = 'Same load. Add a rep to at least one set. Load goes up when every set reaches ' + hi + '.';
     }
   }
@@ -976,15 +996,16 @@ function goalInfo() {
   var pts = [], heaviest = 0, heavyDate = '';
   GOAL.ids.forEach(function (id) {
     hist(id).forEach(function (e) {
-      var b = 0;
-      e.sets.forEach(function (s) { if (s.r <= 10) b = Math.max(b, e1rm(s.w, s.r)); if (s.w > heaviest) { heaviest = s.w; heavyDate = e.date; } });
-      if (b) pts.push({ date: e.date, y: b });
+      var b = 0, bl = 0;
+      e.sets.forEach(function (s) { if (s.r <= 10 && e1rm(s.w, s.r) > b) { b = e1rm(s.w, s.r); bl = s.r === 1 ? s.w : s.w * 36 / (37 - s.r); } if (s.w > heaviest) { heaviest = s.w; heavyDate = e.date; } });
+      if (b) pts.push({ date: e.date, y: b, low: bl });   /* low = the same set read by the more cautious Brzycki formula */
     });
   });
   if (!pts.length) return null;
   pts.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
   var start = pts[0].y, lastDate = pts[pts.length - 1].date, cut = addDays(lastDate, -27), cur = 0, pace = null;
-  pts.forEach(function (p) { if (p.date >= cut) cur = Math.max(cur, p.y); });   /* best of the last four weeks, so one flat day does not move it */
+  var low = 0;
+  pts.forEach(function (p) { if (p.date >= cut && p.y > cur) { cur = p.y; low = p.low; } });   /* best of the last four weeks, so one flat day does not move it */
   var win = pts.filter(function (p) { return p.date >= addDays(lastDate, -55); });
   if (win.length >= 3) {
     var t0 = dateOf(win[0].date).getTime(), xs = win.map(function (p) { return Math.round((dateOf(p.date).getTime() - t0) / 864e5); });
@@ -994,7 +1015,7 @@ function goalInfo() {
       if (sxx) pace = sxy / sxx * 7;   /* lb per week, straight-line fit */
     }
   }
-  return { start: start, cur: cur, heaviest: heaviest, heavyDate: heavyDate, pace: pace, left: Math.max(0, GOAL.target - Math.round(cur)) };
+  return { start: start, cur: cur, low: low, heaviest: heaviest, heavyDate: heavyDate, pace: pace, left: Math.max(0, GOAL.target - Math.round(cur)) };
 }
 function goalLine() { var g = goalInfo(); return g ? 'Goal ' + GOAL.target + ': estimated max ' + Math.round(g.cur) + ', ' + (g.left > 0 ? Math.round(g.left) + ' lb to go' : 'ready to test') : ''; }
 function goalHTML() {
@@ -1016,7 +1037,7 @@ function goalHTML() {
     '<div class="goal-scale"><span>' + Math.round(base) + (base === g.start ? ' start' : '') + '</span>' + (was ? '<span class="goal-was" style="left:' + pos(GOAL.was) + '%">' + GOAL.was + ', your old best</span>' : '') + '<span>' + T + '</span></div>' +
     '<p class="sub">' + line + '</p>' +
     (g.cur < T ? '<p class="small muted">What it takes: a top set of ' + w5 + ' × 5 or ' + w3 + ' × 3 puts the estimate at ' + T + '. Monday\'s top set climbs there 5 lb at a time, and Friday\'s volume bench builds the muscle and practice behind it.</p>' : '') +
-    '<p class="small muted">Estimated max is your best bench set of the last four weeks, as weight × (1 + reps ÷ 30).</p></div>';
+    '<p class="small muted">Estimated max is your best bench set of the last four weeks, as weight × (1 + reps ÷ 30)' + (Math.round(g.low) < Math.round(g.cur) ? '. Treat it as a guide: a more cautious formula reads the same set as ' + Math.round(g.low) + ', while a set that left reps in reserve understates you. Only a real single settles it.' : '.') + '</p></div>';
 }
 
 /* ───────────── Progress ───────────── */
@@ -1178,14 +1199,15 @@ function renderProgram() {
 
   html += '<h2 class="h-sec">Sets per week</h2><div class="card scroll-x"><table class="data"><thead><tr><th>Muscle</th><th>6 days</th><th>With arm day</th><th>Target</th></tr></thead><tbody>' +
     MUSCLES.map(function (m) { return '<tr><td>' + m[1] + '</td><td>' + (Math.round((vp[m[0]] || 0) * 10) / 10) + '</td><td>' + (Math.round((vpa[m[0]] || 0) * 10) / 10) + '</td><td>' + m[2] + '–' + m[3] + '</td></tr>'; }).join('') +
-    '</tbody></table></div><p class="small muted">Direct sets count 1, indirect sets 0.5. The six main days already put every upper-body muscle inside its target. The Thursday arm day moves arms and delts toward the top of it.</p>';
+    '</tbody></table></div><p class="small muted">Direct sets count 1, indirect sets 0.5. The six main days already put every upper-body muscle inside its target. The optional Thursday adds biceps and side-delt work on top.</p>';
 
   html += '<h2 class="h-sec">How the loads move</h2><div class="card"><dl class="rule">' +
     '<dt>Add reps</dt><dd>Keep the load and beat last time by a rep, staying inside the rep range.</dd>' +
     '<dt>Add load</dt><dd>When every set reaches the top of the range, the load goes up 5 lb (10 lb on RDL and calves) and reps restart at the low end.</dd>' +
-    '<dt>Top sets</dt><dd>Bench and squat use one heavy set of 3–5. Log 5 and it goes up 5 lb. Log 5 with 3 or more in reserve and it goes up 10. Back-off sets follow the top set automatically.</dd>' +
-    '<dt>Missed</dt><dd>Fall under the range on the first set and the load is recalculated down from what you did. The same happens after a heavy single, so testing a max never breaks the plan.</dd>' +
-    '<dt>Stalled</dt><dd>Three sessions at one load with no added reps triggers a 7.5–10% reset so you can build back past the sticking point.</dd>' +
+    '<dt>Top sets</dt><dd>Bench and squat open with one heavy set of 3–5. Log 5 and it goes up 5 lb. Log 4 or 5 with plenty in reserve and it also goes up, 10 lb if it was very easy. Back-off sets follow the top set automatically.</dd>' +
+    '<dt>Missed</dt><dd>One rep short on a top set, once, repeats the load. A second miss, or a bigger miss, sets the load from your best recent top set. A heavy single is handled the same way, so testing a max never breaks the plan.</dd>' +
+    '<dt>Stalled</dt><dd>Three sessions at one load with no added reps triggers a step back, 5% on top sets and 10% on other lifts, so you can build past the sticking point.</dd>' +
+    '<dt>After a jump</dt><dd>On small lifts the next dumbbell can be a big step. Landing a little under the rep range right after a jump keeps the new load and builds reps from there.</dd>' +
     '<dt>Skipped</dt><dd>An exercise you skip, or a deload session, changes nothing. The next time you do the lift it picks up from your last real session.</dd>' +
     '<dt>Your call</dt><dd>The weight boxes are editable. Whatever you log becomes the basis for next time, and a saved session can be corrected on the History tab.</dd></dl></div>';
 
@@ -1193,10 +1215,10 @@ function renderProgram() {
     '<div class="row-btns"><button type="button" class="btn" data-act="' + (deload ? 'deload-end' : 'deload-start') + '">' + (deload ? 'End deload' : 'Start a deload week') + '</button></div></div>';
 
   html += '<h2 class="h-sec">Why it is built this way</h2><div class="prose">' +
-    '<h3>Volume: 13–20 weekly sets for the upper body</h3><p>Muscle growth rises with weekly sets per muscle, with diminishing returns. Ten or more sets a week beat fewer in the Schoenfeld 2017 meta-analysis [1], 12–20 is the range Baz-Valle 2022 suggests for trained lifters [2], and the Pelland 2026 meta-regression shows growth still climbing with volume, more slowly each step [3]. Chest gets about 18 sets a week and back about 16. Arms get about 13 from the six main days and about 19 when you train them on Thursday, which is where you asked for the bias.</p>' +
+    '<h3>Volume: 13–20 weekly sets for the upper body</h3><p>Muscle growth rises with weekly sets per muscle, with diminishing returns. Ten or more sets a week beat fewer in the Schoenfeld 2017 meta-analysis [1], 12–20 is the range Baz-Valle 2022 suggests for trained lifters [2], and the Pelland 2026 meta-regression shows growth still climbing with volume, more slowly each step [3]. Chest gets about 18 sets a week and back about 16. Triceps get about 16 every week. Biceps get about 13 from the six main days and about 19 with the optional Thursday.</p>' +
     '<h3>Legs get enough to stay strong and no more</h3><p>Around 9 hard sets a week for quads and hamstrings, across two short leg days. Size and strength are far cheaper to keep than to build: Bickel 2011 held muscle size on roughly a third of the original volume [4]. That frees recovery for the upper body, and it suits a hip that is still coming back.</p>' +
-    '<h3>Each muscle twice a week</h3><p>Your split already trains everything twice a week, which is what the frequency research supports: once weekly volume is matched, extra frequency adds little, and twice is the simplest way to fit 16 quality sets [5]. Arms get a third exposure on Thursday. Monday and Wednesday carry the heavy bench and squat because that is when you are freshest for each.</p>' +
-    '<h3>The road to a 315 bench</h3><p>Three things move a one-rep max: lifting heavy, lifting the same lift often, and carrying more muscle. Maximal strength responds best to heavy loading [6], so Monday opens with a top set of 3–5. Training a lift more often has a clear positive effect on strength in the largest analysis of the question [3], so the bench now appears twice a week. Strength does not need sets taken to failure [7], so both days leave reps in reserve and stay repeatable. The chest and triceps volume around it is there because a bigger muscle has a higher ceiling. Bodyweight matters too: your 285 came at about 180 lb, so log your weight and let it drift up slowly.</p>' +
+    '<h3>Each muscle twice a week</h3><p>Your split already trains everything twice a week, which is what the frequency research supports: once weekly volume is matched, extra frequency adds little, and twice is the simplest way to fit 16 quality sets [5]. Biceps and side delts get a third exposure on the optional Thursday, which is kept free of triceps work so the Friday bench starts fresh. Monday and Wednesday carry the heavy bench and squat because that is when you are freshest for each.</p>' +
+    '<h3>The road to a 315 bench</h3><p>Three things move a one-rep max: lifting heavy, lifting the same lift often, and carrying more muscle. Maximal strength responds best to heavy loading [6], and coaches of competitive powerlifters put the useful minimum at 3–6 sets a week of 1–5 reps above 80% of max, per lift [17]. Monday gives you four such sets: the top set at about 88% and three back-offs at about 82%. Training a lift more often has a clear positive effect on strength [3], so the bench appears again on Friday for four sets of 5–7 at about 78%. Strength does not need sets taken to failure [7], so every bench set leaves reps in reserve and the work stays repeatable. Load goes up by what you actually did, not by a fixed calendar, because adjusting to performance beat fixed loading for maximal strength in a meta-analysis of athletes [16]. The chest and triceps volume around it is there because a bigger muscle has a higher ceiling. Bodyweight matters too: your 285 came at about 180 lb, so log your weight and let it drift up slowly.</p>' +
     '<h3>Heavy top sets for strength, moderate reps for size</h3><p>Growth is similar across a wide span of loads when sets are hard, but maximal strength responds best to heavy loading [6]. So bench and squat open with a top set of 3–5, and everything else lives between 6 and 20 reps.</p>' +
     '<h3>Close to failure, not always to failure</h3><p>Growth improves as sets end nearer to failure, while strength gains do not depend on it [7][8]. Big barbell lifts stop 1–2 reps short, where fatigue is costly. Machines, cables and curls go to 0–1.</p>' +
     '<h3>Rest long enough</h3><p>Resting more than a minute gives a small growth advantage, with little extra beyond about 90 seconds for size [9], and 3 minutes beat 1 minute for strength and size in trained men [10]. Each exercise card shows its rest: 3 minutes on top-set lifts, 2–2.5 on other compounds and 60–90 seconds on isolation work.</p>' +
@@ -1220,6 +1242,8 @@ function renderProgram() {
     '<li>Plotkin D, et al. Progressive overload without progressing load? The effects of load or repetition progression on muscular adaptations. PeerJ. 2022.</li>' +
     '<li>Coleman M, et al. Gaining more from doing less? The effects of a one-week deload period during supervised resistance training on muscular adaptations. PeerJ. 2024.</li>' +
     '<li>Morton RW, et al. A systematic review, meta-analysis and meta-regression of the effect of protein supplementation on resistance training-induced gains in muscle mass and strength. Br J Sports Med. 2018.</li>' +
+    '<li>Zhang X, et al. Auto-regulation method vs. fixed-loading method in maximum strength training for athletes: a systematic review and meta-analysis. Front Physiol. 2021.</li>' +
+    '<li>Androulakis-Korakakis P, et al. The minimum effective training dose required for 1RM strength in powerlifters. Front Sports Act Living. 2021.</li>' +
     '</ol><p class="small">This is a training plan, not medical advice. Let whoever is managing the hip set the limits for squats and RDLs.</p></div>';
   el.innerHTML = html;
 }
