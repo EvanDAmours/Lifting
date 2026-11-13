@@ -5,7 +5,15 @@ It opens on today's session, works out the next loads from what was logged, and 
 estimated maxes, weekly hard sets per muscle and bodyweight.
 
 Everything is in `index.html`. No build step and no server: logs are saved in the browser
-on the device, with Export and Import on the Data tab for backups.
+on the device, with backup files and restore on the Data tab.
+
+## Using it
+
+- Enter reps per set and tap Finish. Blank sets are left out (the app asks once before saving).
+- `− Set` / `+ Set` change the number of sets; `Skip today` drops an exercise from the session
+  without affecting its progression; "Add another exercise" logs a lift from another day.
+- A saved session can be corrected or deleted from Progress → History.
+- Entries in progress survive a reload and are flagged if left unsaved overnight.
 
 ## Putting it online (GitHub Pages)
 

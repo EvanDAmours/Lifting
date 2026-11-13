@@ -54,7 +54,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
-body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.45; -webkit-text-size-adjust: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.45; -webkit-text-size-adjust: 100%; overflow-wrap: break-word; }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
@@ -93,6 +93,7 @@ h1, h2, h3, p { margin: 0; }
 .note-box.info { background: var(--accent-soft); }
 .note-box.warn { background: var(--warn-soft); }
 .note-box.good { background: var(--good-soft); }
+.note-box.bad { background: var(--bad-soft); }
 .note-box strong { font-weight: 600; }
 .note-box ul { margin: 0; padding-left: 18px; }
 .row-btns { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -126,7 +127,18 @@ h1, h2, h3, p { margin: 0; }
 .set .done { height: 44px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink-3); font-size: 1.15rem; font-weight: 700; }
 .set.is-done .done { background: var(--good); border-color: var(--good); color: var(--surface); }
 .set.is-done input, .set.is-done select { background: var(--good-soft); border-color: transparent; }
-.ex-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ex-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ex-actions .btn:last-child { margin-left: auto; }
+.btn.sm { min-height: 38px; padding: 6px 12px; font-size: 0.85rem; border-radius: 8px; }
+.skipped { display: flex; flex-direction: column; gap: 6px; }
+.skip-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--surface); border: 1px dashed var(--line); border-radius: 12px; padding: 8px 8px 8px 14px; color: var(--ink-2); font-size: 0.92rem; }
+.skip-row span { min-width: 0; }
+.add-ex { display: flex; flex-direction: column; gap: 4px; }
+select.field { height: 46px; }
+.file-btn { position: relative; overflow: hidden; display: inline-flex; align-items: center; cursor: pointer; }
+.file-btn input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.file-btn:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+#warn { margin-bottom: 14px; }
 details.how summary { cursor: pointer; font-size: 0.85rem; color: var(--accent); font-weight: 600; }
 details.how p { font-size: 0.88rem; color: var(--ink-2); margin-top: 6px; }
 
@@ -183,11 +195,12 @@ table.data th { color: var(--ink-3); font-weight: 500; }
 .hist { display: flex; flex-direction: column; gap: 8px; }
 .hist details { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
 .hist summary { cursor: pointer; display: flex; justify-content: space-between; gap: 10px; font-weight: 600; font-size: 0.95rem; }
+.hist summary span:first-child { min-width: 0; }
 .hist summary span:last-child { color: var(--ink-3); font-weight: 400; font-size: 0.85rem; white-space: nowrap; }
 .hist dl { margin: 10px 0 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; font-size: 0.88rem; }
 .hist dt { color: var(--ink-2); }
-.hist dd { margin: 0; font-variant-numeric: tabular-nums; }
-.hist .h-actions { margin-top: 10px; display: flex; justify-content: flex-end; }
+.hist dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.hist .h-actions { margin-top: 10px; display: flex; justify-content: flex-end; gap: 8px; }
 
 .prog-sess { display: flex; flex-direction: column; gap: 4px; }
 .prog-sess h3 { font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; letter-spacing: 0.03em; text-transform: uppercase; }
@@ -214,6 +227,7 @@ textarea.io { width: 100%; min-height: 120px; border: 1px solid var(--line); bor
 </header>
 
 <main class="wrap">
+  <div class="note-box bad" id="warn" role="alert" hidden><strong>This browser is not saving your log</strong><span>Private browsing or a full device can block saving, and anything you enter would be lost when the page closes. Open the page in a normal browser window. If you have sessions here already, go to Data and copy a backup before you leave.</span></div>
   <section class="view" id="v-today"></section>
   <section class="view" id="v-progress" hidden></section>
   <section class="view" id="v-program" hidden></section>
@@ -359,26 +373,88 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
+var VERSION = '13 Nov 2026, build 3';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
-function defMeta() { return { deloadUntil: '', snooze: 0, bw: [], updatedAt: 0 }; }
+var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
+/* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
+var RETIRED = {
+  bayesian: { n: 'Bayesian Cable Curl', m: { biceps: 1 } },
+  dbpress: { n: 'Seated Dumbbell Shoulder Press', m: { shoulders: 1, triceps: 0.5 } }
+};
+function exInfo(id) { return EX[id] || RETIRED[id] || { n: id, m: {} }; }
+function defMeta() { return { deloadUntil: '', snooze: 0, bw: [], lastBackup: '', updatedAt: 0 }; }
 var S = { meta: defMeta(), sessions: [] };
 var drafts = {};
-var curSid = null, summary = null, chartEx = 'bench';
+var curSid = null, summary = null, chartEx = 'bench', storageOK = true, renderedDay = '';
+var gen = 0;   /* goes up whenever saved data changes, so untouched entries pick up new loads */
 
-function lsGet(k) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
-function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
-function loadLocal() {
-  var d = lsGet(LS_KEY);
-  if (d && d.meta && Array.isArray(d.sessions)) { S.meta = Object.assign(defMeta(), d.meta); S.sessions = d.sessions.filter(validSession); }
-  var dr = lsGet(DRAFT_KEY); if (dr && typeof dr === 'object') drafts = dr;
+function lsRead(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsWrite(k, str) { try { localStorage.setItem(k, str); return true; } catch (e) { return false; } }
+function parse(str) { try { return JSON.parse(str); } catch (e) { return undefined; } }
+function storageWorks() {
+  try { localStorage.setItem('liftledger.test', '1'); var ok = localStorage.getItem('liftledger.test') === '1'; localStorage.removeItem('liftledger.test'); return ok; } catch (e) { return false; }
 }
-function validSession(s) { return s && typeof s.id === 'string' && typeof s.date === 'string' && Array.isArray(s.entries); }
-function saveLocal() { lsSet(LS_KEY, S); }
-function saveDrafts() { lsSet(DRAFT_KEY, drafts); }
+function setStorageOK(ok) { if (ok === storageOK) return; storageOK = ok; renderWarn(); }
+function renderWarn() { var el = $('#warn'); if (el) el.hidden = storageOK; }
 
+/* Everything read from storage or a backup goes through these, so one bad record cannot break the page. */
+function cleanSession(s) {
+  if (!s || typeof s !== 'object' || typeof s.id !== 'string' || !IDRE.test(s.id) || typeof s.date !== 'string' || !ISO.test(s.date) || isNaN(dateOf(s.date).getTime()) || !Array.isArray(s.entries)) return null;
+  var entries = [];
+  s.entries.forEach(function (e) {
+    if (!e || typeof e.ex !== 'string' || !IDRE.test(e.ex) || !Array.isArray(e.sets)) return;
+    var sets = [];
+    e.sets.forEach(function (x) {
+      if (!x) return;
+      var w = Number(x.w), r = Math.round(Number(x.r));
+      if (!(w > 0 && w <= 2000) || !(r >= 1 && r <= 200)) return;
+      var o = { k: x.k === 'top' || x.k === 'bo' ? x.k : 'work', w: w, r: r };
+      if (x.rir != null && x.rir !== '' && isFinite(Number(x.rir))) o.rir = Math.max(0, Math.min(10, Number(x.rir)));
+      sets.push(o);
+    });
+    if (sets.length) entries.push({ ex: e.ex, sets: sets });
+  });
+  if (!entries.length) return null;
+  return { id: s.id, t: Number(s.t) || 0, date: s.date, sid: typeof s.sid === 'string' ? s.sid.slice(0, 40) : '', name: typeof s.name === 'string' ? s.name.slice(0, 60) : '', deload: !!s.deload, entries: entries, note: typeof s.note === 'string' ? s.note.slice(0, 2000) : '' };
+}
+function cleanBW(list) {
+  var by = {};
+  (Array.isArray(list) ? list : []).forEach(function (b) { if (b && typeof b.d === 'string' && ISO.test(b.d) && Number(b.w) > 0 && Number(b.w) < 1500) by[b.d] = Math.round(Number(b.w) * 10) / 10; });
+  return Object.keys(by).sort().map(function (d) { return { d: d, w: by[d] }; });
+}
+function cleanMeta(m) {
+  var o = defMeta(); if (!m || typeof m !== 'object') return o;
+  if (typeof m.deloadUntil === 'string' && ISO.test(m.deloadUntil)) o.deloadUntil = m.deloadUntil;
+  if (typeof m.lastBackup === 'string' && ISO.test(m.lastBackup)) o.lastBackup = m.lastBackup;
+  o.snooze = Number(m.snooze) || 0; o.updatedAt = Number(m.updatedAt) || 0; o.bw = cleanBW(m.bw);
+  return o;
+}
+function cleanSessions(list) {
+  var seen = {}, out = [];
+  (Array.isArray(list) ? list : []).forEach(function (s) { var c = cleanSession(s); if (c && !seen[c.id]) { seen[c.id] = 1; out.push(c); } });
+  return out;
+}
+function loadLocal() {
+  S = { meta: defMeta(), sessions: [] };
+  var raw = lsRead(LS_KEY);
+  if (raw) {
+    var d = parse(raw);
+    if (d && typeof d === 'object' && Array.isArray(d.sessions)) S = { meta: cleanMeta(d.meta), sessions: cleanSessions(d.sessions) };
+    else lsWrite(LS_KEY + '.unreadable', raw);   /* keep a copy instead of overwriting it */
+  }
+  drafts = {};
+  var dr = parse(lsRead(DRAFT_KEY) || '');
+  if (dr && typeof dr === 'object' && !Array.isArray(dr)) Object.keys(dr).forEach(function (k) { var f = fixDraft(dr[k], k); if (f) drafts[k] = f; });
+  if (drafts.__edit && !S.sessions.some(function (s) { return s.id === drafts.__edit.editId; })) delete drafts.__edit;
+}
+function saveLocal() { setStorageOK(lsWrite(LS_KEY, JSON.stringify(S))); }
+function saveDrafts() { lsWrite(DRAFT_KEY, JSON.stringify(drafts)); }
 function saveMeta() { S.meta.updatedAt = Date.now(); saveLocal(); }
-function saveSession() { saveLocal(); }
-function deleteSession(id) { S.sessions = S.sessions.filter(function (s) { return s.id !== id; }); saveMeta(); }
+function deleteSession(id) {
+  S.sessions = S.sessions.filter(function (s) { return s.id !== id; });
+  if (drafts.__edit && drafts.__edit.editId === id) { delete drafts.__edit; saveDrafts(); }
+  gen++; saveMeta();
+}
 
 /* ───────────── Schedule ───────────── */
 var DOWF = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -399,25 +475,36 @@ function hist(exId) {
   });
   return out;
 }
+function hasTop(e) { return e.sets.some(function (s) { return s.k === 'top'; }); }
 function topOf(e) { for (var i = 0; i < e.sets.length; i++) if (e.sets[i].k === 'top') return e.sets[i]; return e.sets[0]; }
 function bestE1(exId, h) { var b = 0; (h || hist(exId)).forEach(function (e) { e.sets.forEach(function (s) { b = Math.max(b, e1rm(s.w, s.r)); }); }); return b; }
-function sumAt(e, w) { return e.sets.reduce(function (a, s) { return a + (s.w === w ? s.r : 0); }, 0); }
+/* The working weight of an entry: the load used for the most sets (the heavier one on a tie). */
+function refW(sets) {
+  var c = {}, best = sets[0].w, bc = 0;
+  sets.forEach(function (s) { c[s.w] = (c[s.w] || 0) + 1; });
+  sets.forEach(function (s) { if (c[s.w] > bc || (c[s.w] === bc && s.w > best)) { bc = c[s.w]; best = s.w; } });
+  return best;
+}
+function repsAt(e, w) { return e.sets.filter(function (s) { return s.w === w; }).map(function (s) { return s.r; }); }
+function avg(a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : 0; }
 
 function plan(exId, n, deload) {
-  var ex = EX[exId], h = hist(exId), last = h[h.length - 1], lo = ex.range[0], hi = ex.range[1];
+  var ex = EX[exId], h = hist(exId), lo = ex.range[0], hi = ex.range[1];
+  if (ex.type === 'top') { var ht = h.filter(hasTop); if (ht.length) h = ht; }   /* a day with only back-off sets does not move the top set */
+  var last = h[h.length - 1], real = h.filter(function (e) { return !e.base; }).slice(-3);
   var w, status, note, tg = [];
   if (!last) {
     w = ex.start; status = 'new';
     note = 'Starting estimate. Adjust it today so the first set lands in the rep range with about 2 reps left. After that the app sets the load.';
   } else if (ex.type === 'top') {
-    var top = topOf(last), a3 = h.slice(-3);
-    var stuck = a3.length === 3 && a3.every(function (e) { return topOf(e).w === top.w; }) && top.r <= topOf(a3[0]).r;
+    var top = topOf(last);
+    var stuck = real.length === 3 && real.every(function (e) { return topOf(e).w === top.w; }) && top.r <= topOf(real[0]).r;
     if (top.r >= hi) {
       var j = (top.rir >= 3) ? 2 : 1; w = top.w + ex.inc * j; status = 'up'; tg = [lo];
       note = fmtW(top.w) + ' × ' + top.r + ' reached the top of the range. Add ' + (ex.inc * j) + ' lb.';
     } else if (top.r < lo) {
-      w = Math.min(top.w - ex.inc, rnd(top.w * 0.95)); status = 'down'; tg = [lo + 1];
-      note = top.r + ' reps is under the ' + lo + '–' + hi + ' range. Drop about 5% and build back up.';
+      w = Math.max(5, Math.min(top.w - ex.inc, rnd(top.w * 0.95))); status = 'down'; tg = [lo + 1];
+      note = top.r + (top.r === 1 ? ' rep is' : ' reps is') + ' under the ' + lo + '–' + hi + ' range. Drop about 5% and build back up.';
     } else if (stuck) {
       w = rnd(top.w * 0.925); status = 'reset'; tg = [hi];
       note = 'Three sessions at ' + fmtW(top.w) + ' without an added rep. Reset about 7.5% and build back past it.';
@@ -426,16 +513,16 @@ function plan(exId, n, deload) {
       note = 'Same load. Beat ' + top.r + (top.r === 1 ? ' rep' : ' reps') + ' on the top set.';
     }
   } else {
-    var w0 = last.sets[0].w, reps = last.sets.filter(function (s) { return s.w === w0; }).map(function (s) { return s.r; });
-    var b3 = h.slice(-3);
-    var stuck2 = b3.length === 3 && b3.every(function (e) { return e.sets[0].w === w0; }) && sumAt(b3[2], w0) <= sumAt(b3[0], w0) && b3[2].sets.length <= b3[0].sets.length;
-    if (reps.every(function (r) { return r >= hi; })) {
+    var w0 = refW(last.sets), reps = repsAt(last, w0);
+    var stuck2 = real.length === 3 && real.every(function (e) { return refW(e.sets) === w0; }) && reps[0] <= repsAt(real[0], w0)[0] && avg(reps) <= avg(repsAt(real[0], w0));
+    var allTop = last.sets.every(function (s) { return (s.w === w0 && s.r >= hi) || (s.w > w0 && s.r >= lo); });
+    if (allTop) {
       w = w0 + ex.inc; status = 'up';
       note = 'Every set reached ' + hi + ' reps at ' + fmtW(w0) + '. Add ' + ex.inc + ' lb and start again from the low end of the range.';
     } else if (reps[0] < lo) {
-      w = Math.min(w0 - ex.inc, rnd(e1rm(w0, reps[0]) / (1 + (lo + 2) / 30)));
+      w = Math.max(5, Math.min(w0 - ex.inc, rnd(e1rm(w0, reps[0]) / (1 + (lo + 2) / 30))));
       if (last.base) { status = 'new'; note = 'Load worked out from your ' + fmtW(w0) + ' × ' + reps[0] + ' so that ' + lo + '–' + hi + ' reps is in reach.'; }
-      else { status = 'down'; note = reps[0] + ' reps on the first set is under the ' + lo + '–' + hi + ' range. Load recalculated from that set.'; }
+      else { status = 'down'; note = reps[0] + (reps[0] === 1 ? ' rep' : ' reps') + ' on the first set is under the ' + lo + '–' + hi + ' range. Load recalculated from that set.'; }
     } else if (stuck2) {
       w = rnd(w0 * 0.9); status = 'reset';
       note = 'Three sessions at ' + fmtW(w0) + ' without more reps. Reset about 10% and rebuild, or swap in a similar exercise.';
@@ -453,7 +540,8 @@ function plan(exId, n, deload) {
     status = 'deload'; note = 'Deload: about half the sets, lighter load, stop at least 4 reps short of failure.';
   } else if (ex.type === 'top') {
     rows.push({ k: 'top', w: w, t: tg[0] || lo });
-    var bw = rnd(w * ex.bo.pct), lb = last ? last.sets.filter(function (s) { return s.k === 'bo' && s.w === bw; }) : [];
+    var bw = rnd(w * ex.bo.pct), lb = [], all = hist(exId);
+    for (k = all.length - 1; k >= 0 && !lb.length; k--) lb = all[k].sets.filter(function (s) { return s.k === 'bo' && s.w === bw; });   /* most recent back-offs at this load */
     for (k = 0; k < n - 1; k++) rows.push({ k: 'bo', w: bw, t: lb[k] ? Math.min(ex.bo.range[1], lb[k].r + 1) : (lb.length ? Math.min(ex.bo.range[1], lb[lb.length - 1].r) : ex.bo.range[0]) });
   } else {
     for (k = 0; k < n; k++) rows.push({ k: 'work', w: w, t: tg[k] || lo });
@@ -469,164 +557,316 @@ function schemeText(exId, n, deload) {
 }
 function sinceDeload() { var s = sorted(), c = 0; for (var i = s.length - 1; i >= 0; i--) { if (s[i].deload) break; c++; } return c; }
 
-/* ───────────── Drafts (the workout being entered) ───────────── */
+/* ───────────── Entries in progress ─────────────
+   One entry sheet per session. It is rebuilt from the plan until you change something;
+   after that it is yours and is kept, including across reloads, until you save or clear it. */
 function hasData(d) { for (var k in d.rows) for (var i = 0; i < d.rows[k].length; i++) if (d.rows[k][i].r !== '' || d.rows[k][i].done) return true; return false; }
-function getDraft(sid) {
-  var d = drafts[sid];
-  if (d && d.rows && hasData(d)) return d;
-  var sess = sessById(sid), deload = isDeload();
-  d = { sid: sid, date: todayISO(), deload: deload, rows: {}, note: (d && d.note) || '', bw: '' };
-  sess.items.forEach(function (it) {
-    d.rows[it[0]] = plan(it[0], it[1], deload).rows.map(function (r) { return { k: r.k, w: String(r.w), r: '', rir: '', t: r.t, done: false }; });
-  });
-  drafts[sid] = d;
+function rowsFor(exId, n, deload) { return plan(exId, n, deload).rows.map(function (r) { return { k: r.k, w: String(r.w), r: '', rir: '', t: r.t, done: false }; }); }
+function defaultSets(exId) { for (var i = 0; i < ROT.length; i++) for (var j = 0; j < ROT[i].items.length; j++) if (ROT[i].items[j][0] === exId) return ROT[i].items[j][1]; return 3; }
+function buildDraft(sid) {
+  var sess = sessById(sid), deload = isDeload(), today = todayISO();
+  var d = { sid: sess.id, date: today, started: today, deload: deload, order: [], n: {}, rows: {}, skip: {}, note: '', bw: '', touched: false, gen: gen };
+  sess.items.forEach(function (it) { d.order.push(it[0]); d.n[it[0]] = it[1]; d.rows[it[0]] = rowsFor(it[0], it[1], deload); });
   return d;
+}
+function fixDraft(d, key) {
+  if (!d || typeof d !== 'object' || !d.rows || typeof d.rows !== 'object') return null;
+  var edit = key === '__edit';
+  if (edit && (typeof d.editId !== 'string' || !IDRE.test(d.editId))) return null;
+  if (!edit) { delete d.editId; var known = false; ROT.forEach(function (r) { if (r.id === key) known = true; }); if (!known) return null; d.sid = key; }
+  if (!Array.isArray(d.order)) {   /* entry sheet saved by an earlier version */
+    if (!hasData(d)) return null;
+    d.order = []; d.n = {};
+    sessById(key).items.forEach(function (it) { if (Array.isArray(d.rows[it[0]])) { d.order.push(it[0]); d.n[it[0]] = it[1]; } });
+    d.skip = {}; d.touched = true;
+  }
+  if (!d.touched) return null;
+  var rows = {}, order = [], n = {};
+  d.order.forEach(function (id) {
+    if (typeof id !== 'string' || !IDRE.test(id) || rows[id] || !Array.isArray(d.rows[id]) || (!edit && !EX[id])) return;
+    var list = d.rows[id].filter(function (r) { return r && typeof r === 'object'; }).slice(0, 12).map(function (r) {
+      var o = { k: r.k === 'top' || r.k === 'bo' ? r.k : 'work', w: r.w == null ? '' : String(r.w), r: r.r == null ? '' : String(r.r), rir: r.rir == null ? '' : String(r.rir), t: Number(r.t) || 0, done: !!r.done };
+      if (r.we) o.we = true;
+      return o;
+    });
+    if (!list.length) return;
+    rows[id] = list; order.push(id); n[id] = (d.n && Number(d.n[id]) > 0) ? Number(d.n[id]) : list.length;
+  });
+  if (!order.length) return null;
+  var skip = {};
+  if (d.skip && typeof d.skip === 'object') order.forEach(function (id) { if (d.skip[id]) skip[id] = true; });
+  var today = todayISO(), date = (typeof d.date === 'string' && ISO.test(d.date)) ? d.date : today;
+  return { sid: typeof d.sid === 'string' ? d.sid : '', editId: edit ? d.editId : undefined, name: typeof d.name === 'string' ? d.name : '', date: date,
+    started: (typeof d.started === 'string' && ISO.test(d.started)) ? d.started : date, deload: !!d.deload, order: order, n: n, rows: rows, skip: skip,
+    note: typeof d.note === 'string' ? d.note : '', bw: d.bw == null ? '' : String(d.bw), touched: true, gen: 0 };
+}
+function getDraft(sid) {
+  var d = drafts[sid], today = todayISO();
+  if (d && d.touched && (d.started === today || hasData(d))) return d;
+  if (d && !d.touched && d.gen === gen && d.started === today && d.deload === isDeload()) return d;
+  d = buildDraft(sid); drafts[sid] = d;
+  return d;
+}
+function cur() { if (drafts.__edit) return drafts.__edit; if (!curSid) curSid = defaultSid(); return getDraft(curSid); }
+function touch(d) { d.touched = true; saveDrafts(); }
+function startEdit(id) {
+  var s = null; S.sessions.forEach(function (x) { if (x.id === id) s = x; }); if (!s) return;
+  var d = { editId: s.id, sid: s.sid, name: s.name || sessById(s.sid).name, date: s.date, started: todayISO(), deload: !!s.deload, order: [], n: {}, rows: {}, skip: {}, note: s.note || '', bw: '', touched: true, gen: 0 };
+  s.entries.forEach(function (e) {
+    if (!d.rows[e.ex]) { d.rows[e.ex] = []; d.order.push(e.ex); }
+    e.sets.forEach(function (x) { d.rows[e.ex].push({ k: x.k || 'work', w: String(x.w), r: String(x.r), rir: x.rir == null ? '' : String(Math.min(4, Math.round(x.rir))), t: x.r, done: true }); });
+    d.n[e.ex] = d.rows[e.ex].length;
+  });
+  drafts.__edit = d; saveDrafts(); summary = null;
+  renderToday();
+  if (location.hash === '#today') { showTab(); } else { location.hash = '#today'; }
 }
 
 /* ───────────── Today ───────────── */
-function tagFor(row, i, rows) {
+function tagFor(row, i) {
   if (row.k === 'top') return ['Top', 'top'];
   if (row.k === 'bo') return ['B' + i, ''];
   return [String(i + 1), ''];
 }
-function setRowHTML(exId, i, row, rows) {
-  var t = tagFor(row, i, rows);
+function setRowHTML(exId, i, row) {
+  var t = tagFor(row, i);
   var rirOpts = ['', '0', '1', '2', '3', '4'].map(function (v) { return '<option value="' + v + '"' + (String(row.rir) === v ? ' selected' : '') + '>' + (v === '' ? '–' : v === '4' ? '4+' : v) + '</option>'; }).join('');
   return '<div class="set' + (row.done ? ' is-done' : '') + '" data-ex="' + exId + '" data-i="' + i + '">' +
     '<span class="tag ' + t[1] + '">' + t[0] + '</span>' +
     '<input id="w-' + exId + '-' + i + '" data-f="w" type="number" inputmode="decimal" step="any" min="0" value="' + esc(row.w) + '" aria-label="Weight in pounds, set ' + (i + 1) + '">' +
     '<span class="x">×</span>' +
-    '<input id="r-' + exId + '-' + i + '" data-f="r" type="number" inputmode="numeric" step="1" min="0" value="' + esc(row.r) + '" placeholder="' + row.t + '" aria-label="Reps, set ' + (i + 1) + '">' +
+    '<input id="r-' + exId + '-' + i + '" data-f="r" type="number" inputmode="numeric" step="1" min="0" value="' + esc(row.r) + '"' + (row.t ? ' placeholder="' + row.t + '"' : '') + ' aria-label="Reps, set ' + (i + 1) + '">' +
     '<select id="rir-' + exId + '-' + i + '" data-f="rir" aria-label="Reps in reserve, set ' + (i + 1) + '">' + rirOpts + '</select>' +
     '<button type="button" class="done" data-act="done" aria-pressed="' + (row.done ? 'true' : 'false') + '" aria-label="Mark set ' + (i + 1) + ' done">✓</button>' +
   '</div>';
 }
-function cardHTML(exId, n, d) {
-  var ex = EX[exId], p = plan(exId, n, d.deload), rows = d.rows[exId] || [];
-  var meta = [];
-  if (p.last) meta.push('Last: ' + ((p.last.base && BASE.text[exId]) || fmtSets(p.last.sets)) + ' on ' + fmtDate(p.last.date));
+function metaHTML(exId, d, p) {
+  var ex = exInfo(exId), rows = d.rows[exId] || [], meta = [];
+  if (p && p.last) meta.push('Last: ' + ((p.last.base && BASE.text[exId]) || fmtSets(p.last.sets)) + ' on ' + fmtDate(p.last.date));
   if (ex.eq === 'barbell') {
     var seen = {}, pl = [];
-    rows.forEach(function (r) { var w = num(r.w); if (w >= 45 && !seen[w]) { seen[w] = 1; pl.push(fmtW(w) + ' = ' + plates(w)); } });
+    rows.forEach(function (r) { var w = num(r.w); if (w >= 45 && w <= 1500 && !seen[w]) { seen[w] = 1; pl.push(fmtW(w) + ' = ' + plates(w)); } });
     if (pl.length) meta.push('Per side: ' + pl.join(' | '));
   }
-  if (ex.type === 'top' && !d.deload) meta.push('Warm-up: bar × 10, ' + rnd(p.w * 0.5) + ' × 5, ' + rnd(p.w * 0.7) + ' × 3, ' + rnd(p.w * 0.85) + ' × 1');
+  if (p && ex.type === 'top' && !d.deload && rows[0] && rows[0].k === 'top' && num(rows[0].w) >= 45) {
+    var tw = num(rows[0].w); meta.push('Warm-up: bar × 10, ' + rnd(tw * 0.5) + ' × 5, ' + rnd(tw * 0.7) + ' × 3, ' + rnd(tw * 0.85) + ' × 1');
+  }
+  return '<div class="ex-meta">' + meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>';
+}
+function cardHTML(exId, d) {
+  var ex = exInfo(exId), rows = d.rows[exId] || [], n = d.n[exId] || rows.length, edit = !!d.editId;
+  var p = (!edit && EX[exId]) ? plan(exId, n, d.deload) : null;
+  var scheme = p ? schemeText(exId, n, d.deload) + ' · leave ' + (d.deload ? '4+' : ex.rir) + ' in reserve · rest ' + (ex.rest >= 120 ? (ex.rest / 60) + ' min' : ex.rest + ' s')
+                 : rows.length + (rows.length === 1 ? ' set' : ' sets');
   return '<article class="card" data-card="' + exId + '">' +
-    '<div class="ex-head"><div><div class="ex-name">' + esc(ex.n) + '</div><div class="ex-scheme">' + schemeText(exId, n, d.deload) + ' · leave ' + (d.deload ? '4+' : ex.rir) + ' in reserve · rest ' + (ex.rest >= 120 ? (ex.rest / 60) + '\u00a0min' : ex.rest + '\u00a0s') + '</div></div>' +
-      '<span class="chip ' + p.status + '">' + CHIP[p.status] + '</span></div>' +
-    '<p class="ex-note">' + esc(p.note) + '</p>' +
+    '<div class="ex-head"><div><div class="ex-name">' + esc(ex.n) + '</div><div class="ex-scheme">' + scheme + '</div></div>' +
+      (p ? '<span class="chip ' + p.status + '">' + CHIP[p.status] + '</span>' : '') + '</div>' +
+    (p ? '<p class="ex-note">' + esc(p.note) + '</p>' : '') +
     '<div class="sets"><div class="set-labels"><span>Set</span><span>lb</span><span></span><span>Reps</span><span>RIR</span><span></span></div>' +
-      rows.map(function (r, i) { return setRowHTML(exId, i, r, rows); }).join('') + '</div>' +
-    (meta.length ? '<div class="ex-meta">' + meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') +
-    '<div class="ex-foot"><details class="how"><summary>How to do it</summary><p>' + esc(ex.cue) + '</p></details>' +
-      '<span><button type="button" class="btn link" data-act="rmset">Remove set</button> &nbsp; <button type="button" class="btn link" data-act="addset">Add set</button></span></div>' +
+      rows.map(function (r, i) { return setRowHTML(exId, i, r); }).join('') + '</div>' +
+    metaHTML(exId, d, p) +
+    '<div class="ex-actions"><button type="button" class="btn sm" data-act="rmset">− Set</button><button type="button" class="btn sm" data-act="addset">+ Set</button>' +
+      '<button type="button" class="btn sm" data-act="skip">' + (edit ? 'Remove exercise' : 'Skip today') + '</button></div>' +
+    (ex.cue ? '<details class="how"><summary>How to do it</summary><p>' + esc(ex.cue) + '</p></details>' : '') +
   '</article>';
 }
+function listHTML(d) {
+  var shown = d.order.filter(function (id) { return !d.skip[id]; }), skipped = d.order.filter(function (id) { return d.skip[id]; });
+  var html = shown.map(function (id) { return cardHTML(id, d); }).join('');
+  if (!shown.length) html += '<p class="sub">Every exercise is off the list. Add one back to log this session.</p>';
+  if (skipped.length) {
+    html += '<div class="skipped"><p class="small muted">' + (d.editId ? 'Removed from this session' : 'Skipped today, not saved and not counted') + '</p>' + skipped.map(function (id) {
+      return '<div class="skip-row"><span>' + esc(exInfo(id).n) + '</span><button type="button" class="btn sm" data-act="unskip" data-ex="' + id + '">Add back</button></div>';
+    }).join('') + '</div>';
+  }
+  var others = Object.keys(EX).filter(function (id) { return d.order.indexOf(id) < 0; }).sort(function (a, b) { return EX[a].n < EX[b].n ? -1 : 1; });
+  if (others.length) {
+    html += '<label class="add-ex small muted" for="add-ex">Did something that is not on this list?<select id="add-ex" class="field"><option value="">Add another exercise</option>' +
+      others.map(function (id) { return '<option value="' + id + '">' + esc(EX[id].n) + '</option>'; }).join('') + '</select></label>';
+  }
+  return html;
+}
+function relist(d) { var el = $('#today-list'); if (el) el.innerHTML = listHTML(d); }
 function renderToday() {
-  var el = $('#v-today');
-  var def = defaultSid(), doneToday = loggedToday();
+  var el = $('#v-today'), def = defaultSid(), doneToday = loggedToday(), today = todayISO();
   if (!curSid) curSid = def;
-  var sess = sessById(curSid), d = getDraft(curSid);
-  var html = '';
-  if (summary) {
-    html += '<div class="note-box good"><strong>' + esc(summary.title) + '</strong>' +
-      (summary.prs.length ? '<span>New best: ' + esc(summary.prs.join(', ')) + '.</span>' : '') +
-      (summary.ups.length ? '<span>Going up next time:</span><ul>' + summary.ups.map(function (u) { return '<li>' + esc(u) + '</li>'; }).join('') + '</ul>' : '<span>Loads hold next time. Chase one more rep on each lift.</span>') +
-      '<div class="row-btns"><button type="button" class="btn" data-act="dismiss-summary">Got it</button></div></div>';
+  var d = cur(), edit = !!d.editId, sess = sessById(d.sid), html = '';
+  if (edit) {
+    html += '<div class="hero"><p class="sub">Editing a saved session</p><h1 class="hero-title">' + esc(d.name || sess.name) + '</h1>' +
+      '<div class="hero-row"><label class="small muted" for="sess-date">Date</label><input type="date" id="sess-date" max="' + today + '" value="' + esc(d.date) + '"></div></div>' +
+      '<div class="note-box info"><span>Correct the numbers below and save. Your next loads are recalculated from the corrected session.</span>' +
+      '<div class="row-btns"><button type="button" class="btn" data-act="cancel-edit">Cancel and keep it as it was</button></div></div>';
+  } else {
+    if (summary) {
+      html += '<div class="note-box good"><strong>' + esc(summary.title) + '</strong>' +
+        (summary.prs.length ? '<span>New best: ' + esc(summary.prs.join(', ')) + '.</span>' : '') +
+        (summary.ups.length ? '<span>Going up next time:</span><ul>' + summary.ups.map(function (u) { return '<li>' + esc(u) + '</li>'; }).join('') + '</ul>' : (summary.deload ? '<span>Deload session logged. Your loads are unchanged.</span>' : '<span>Loads hold next time. Chase one more rep on each lift.</span>')) +
+        '<div class="row-btns"><button type="button" class="btn" data-act="dismiss-summary">Got it</button></div></div>';
+    }
+    if (!isDeload() && sinceDeload() >= DELOAD_AFTER && S.sessions.length >= (S.meta.snooze || 0)) {
+      html += '<div class="note-box warn"><strong>Deload is an option now</strong><span>' + sinceDeload() + ' sessions since your last easy week. If joints ache, sleep is off or lifts have stalled across the board, take one easy week. If you feel good, keep going.</span>' +
+        '<div class="row-btns"><button type="button" class="btn" data-act="deload-start">Start a deload week</button><button type="button" class="btn" data-act="deload-snooze">Not now</button></div></div>';
+    }
+    if (isDeload()) {
+      html += '<div class="note-box warn"><strong>Deload week, through ' + fmtDate(S.meta.deloadUntil, true) + '</strong><span>Half the sets, lighter loads. These sessions do not change your progression.</span>' +
+        '<div class="row-btns"><button type="button" class="btn" data-act="deload-end">End deload</button></div></div>';
+    }
+    var open = Object.keys(drafts).filter(function (k) { return k !== '__edit' && k !== curSid && drafts[k] && drafts[k].touched && hasData(drafts[k]); });
+    if (open.length) {
+      html += '<div class="note-box warn"><strong>Entries you have not saved</strong>' + open.map(function (k) {
+        return '<span>' + esc(sessById(k).name) + ', started ' + fmtDate(drafts[k].started, true) + '</span><div class="row-btns"><button type="button" class="btn" data-act="open-draft" data-sid="' + k + '">Open</button><button type="button" class="btn danger" data-act="discard-draft" data-sid="' + k + '">Discard</button></div>';
+      }).join('') + '</div>';
+    }
+    html += '<div class="hero"><p class="sub">' + (curSid === def ? (doneToday ? 'Today is logged · up next, ' + DOWF[sess.dow] : 'Today · ' + DOWF[sess.dow]) : 'Chosen session · usually ' + DOWF[sess.dow]) + (d.deload ? ' · deload' : '') + '</p>' +
+      '<h1 class="hero-title">' + esc(sess.name) + '</h1><p class="sub">' + esc(sess.tag) + '</p>' +
+      '<div class="hero-row"><label class="small muted" for="sess-date">Date</label><input type="date" id="sess-date" max="' + today + '" value="' + esc(d.date) + '"></div>' +
+      '<div class="picker" role="group" aria-label="Choose a session">' + ROT.map(function (r) {
+        return '<button type="button" class="pick" data-act="pick" data-sid="' + r.id + '" aria-pressed="' + (r.id === curSid ? 'true' : 'false') + '">' + (r.id === def ? '<span class="dot"></span>' : '') + DOW[r.dow] + ' · ' + esc(r.name) + '</button>';
+      }).join('') + '</div></div>';
+    if (d.touched && d.started !== today && d.date !== today) {
+      html += '<div class="note-box warn"><strong>Started on ' + fmtDate(d.started, true) + ' and never saved</strong><span>These entries will be saved with the date ' + fmtDate(d.date, true) + ' unless you change it.</span>' +
+        '<div class="row-btns"><button type="button" class="btn" data-act="use-today">Use today\'s date</button></div></div>';
+    }
+    if (!S.sessions.length && !summary) {
+      html += '<div class="note-box info"><strong>How this works</strong><span>The app opens on the session for today and sets the loads from your 12 Nov numbers. Enter the reps you get for each set and tap ✓ to tick it off. RIR is how many more reps you could have done. Short on time? Use Skip today on any exercise. Finish the session and the next one is worked out for you.</span></div>';
+    }
   }
-  if (!isDeload() && sinceDeload() >= DELOAD_AFTER && S.sessions.length >= (S.meta.snooze || 0)) {
-    html += '<div class="note-box warn"><strong>Deload is an option now</strong><span>' + sinceDeload() + ' sessions since your last easy week. If joints ache, sleep is off or lifts have stalled across the board, take one easy week. If you feel good, keep going.</span>' +
-      '<div class="row-btns"><button type="button" class="btn" data-act="deload-start">Start a deload week</button><button type="button" class="btn" data-act="deload-snooze">Not now</button></div></div>';
-  }
-  if (isDeload()) {
-    html += '<div class="note-box warn"><strong>Deload week, through ' + fmtDate(S.meta.deloadUntil, true) + '</strong><span>Half the sets, lighter loads. These sessions do not change your progression.</span>' +
-      '<div class="row-btns"><button type="button" class="btn" data-act="deload-end">End deload</button></div></div>';
-  }
-  html += '<div class="hero"><p class="sub">' + (curSid === def ? (doneToday ? 'Today is logged · up next, ' + DOWF[sess.dow] : 'Today · ' + DOWF[sess.dow]) : 'Chosen session · usually ' + DOWF[sess.dow]) + (d.deload ? ' · deload' : '') + '</p>' +
-    '<h1 class="hero-title">' + esc(sess.name) + '</h1><p class="sub">' + esc(sess.tag) + '</p>' +
-    '<div class="hero-row"><label class="small muted" for="sess-date">Date</label><input type="date" id="sess-date" value="' + esc(d.date) + '"></div>' +
-    '<div class="picker" role="group" aria-label="Choose a session">' + ROT.map(function (r) {
-      return '<button type="button" class="pick" data-act="pick" data-sid="' + r.id + '" aria-pressed="' + (r.id === curSid ? 'true' : 'false') + '">' + (r.id === def ? '<span class="dot"></span>' : '') + DOW[r.dow] + ' · ' + esc(r.name) + '</button>';
-    }).join('') + '</div></div>';
-  if (!S.sessions.length && !summary) {
-    html += '<div class="note-box info"><strong>How this works</strong><span>The app opens on the session for today and sets the loads from your 12 Nov numbers. Enter the reps you get for each set and tap ✓ to tick it off. RIR is how many more reps you could have done. Finish the session and the next one is worked out for you.</span></div>';
-  }
-  html += '<div id="today-list" class="view">' + sess.items.map(function (it) { return cardHTML(it[0], it[1], d); }).join('') + '</div>';
-  html += '<div class="finish"><label for="sess-bw">Bodyweight today, lb (optional)<input id="sess-bw" type="number" inputmode="decimal" step="any" min="0" value="' + esc(d.bw || '') + '"></label>' +
-    '<label for="sess-note">Notes (optional)<textarea id="sess-note" placeholder="Sleep, hip, anything worth remembering">' + esc(d.note || '') + '</textarea></label>' +
-    '<button type="button" class="btn primary big" data-act="finish">Finish and save</button></div>';
+  html += '<div id="today-list" class="view">' + listHTML(d) + '</div>';
+  html += '<div class="finish">' +
+    (edit ? '' : '<label for="sess-bw">Bodyweight today, lb (optional)<input id="sess-bw" type="number" inputmode="decimal" step="any" min="0" value="' + esc(d.bw || '') + '"></label>') +
+    '<label for="sess-note">Notes (optional)<textarea id="sess-note" maxlength="2000" placeholder="Sleep, hip, anything worth remembering">' + esc(d.note || '') + '</textarea></label>' +
+    '<button type="button" class="btn primary big" data-act="finish">' + (edit ? 'Save changes' : 'Finish and save') + '</button>' +
+    (edit ? '' : '<button type="button" class="btn" data-act="clear-draft">Clear everything entered for this session</button>') + '</div>';
   el.innerHTML = html;
 }
 function todayInput(e) {
-  var t = e.target, d = getDraft(curSid);
-  if (t.id === 'sess-date') { if (t.value) d.date = t.value; saveDrafts(); return; }
-  if (t.id === 'sess-note') { d.note = t.value; saveDrafts(); return; }
-  if (t.id === 'sess-bw') { d.bw = t.value; saveDrafts(); return; }
-  var row = t.closest ? t.closest('.set') : null; if (!row || !t.dataset.f) return;
-  var r = d.rows[row.dataset.ex][+row.dataset.i]; if (!r) return;
-  r[t.dataset.f] = t.value; saveDrafts();
+  var t = e.target; if (!t || !t.id && !(t.dataset && t.dataset.f)) return;
+  var d = cur();
+  if (t.id === 'add-ex') {
+    if (e.type === 'change' && t.value && EX[t.value] && d.order.indexOf(t.value) < 0) {
+      var id = t.value; d.order.push(id); d.n[id] = defaultSets(id); d.rows[id] = rowsFor(id, d.n[id], d.deload);
+      touch(d); relist(d);
+      var c = $('[data-card="' + id + '"]'); if (c && c.scrollIntoView) c.scrollIntoView({ block: 'center' });
+    }
+    return;
+  }
+  if (t.id === 'sess-date') { if (ISO.test(t.value)) { d.date = t.value; touch(d); } return; }
+  if (t.id === 'sess-note') { d.note = t.value; touch(d); return; }
+  if (t.id === 'sess-bw') { d.bw = t.value; touch(d); return; }
+  var rowEl = t.closest ? t.closest('.set') : null; if (!rowEl || !t.dataset.f) return;
+  var exId = rowEl.dataset.ex, rows = d.rows[exId], r = rows && rows[+rowEl.dataset.i]; if (!r) return;
+  r[t.dataset.f] = t.value;
+  if (t.dataset.f === 'w') {
+    r.we = true;
+    if (e.type === 'change') {
+      var ex = EX[exId];
+      if (r.k === 'top' && ex && ex.type === 'top' && !d.editId && !d.deload && num(t.value) > 0) {
+        var bo = String(rnd(num(t.value) * ex.bo.pct));   /* back-off sets follow the top set unless you have already changed or done them */
+        rows.forEach(function (x, i) { if (x.k === 'bo' && !x.we && x.r === '' && !x.done) { x.w = bo; var inp = $('#w-' + exId + '-' + i); if (inp) inp.value = bo; } });
+      }
+      var card = rowEl.closest('[data-card]'), m = card && $('.ex-meta', card);
+      if (m) m.outerHTML = metaHTML(exId, d, (!d.editId && EX[exId]) ? plan(exId, d.n[exId] || rows.length, d.deload) : null);
+    }
+  }
+  touch(d);
 }
 function todayClick(e) {
   var b = e.target.closest ? e.target.closest('[data-act]') : null; if (!b) return;
   var act = b.dataset.act, d;
   if (act === 'pick') { curSid = b.dataset.sid; summary = null; renderToday(); window.scrollTo(0, 0); return; }
   if (act === 'dismiss-summary') { summary = null; renderToday(); return; }
-  if (act === 'deload-start') { S.meta.deloadUntil = addDays(todayISO(), 6); saveMeta(); dropEmptyDrafts(); renderAll(); return; }
+  if (act === 'deload-start') { S.meta.deloadUntil = addDays(todayISO(), 6); gen++; saveMeta(); renderAll(); toast('Deload week started.'); return; }
   if (act === 'deload-snooze') { S.meta.snooze = S.sessions.length + 5; saveMeta(); renderToday(); return; }
-  if (act === 'deload-end') { S.meta.deloadUntil = ''; saveMeta(); dropEmptyDrafts(); renderAll(); return; }
-  if (act === 'finish') { finish(); return; }
+  if (act === 'deload-end') { S.meta.deloadUntil = ''; gen++; saveMeta(); renderAll(); toast('Deload ended.'); return; }
+  if (act === 'finish') { finish(b); return; }
+  if (act === 'cancel-edit') { delete drafts.__edit; saveDrafts(); renderToday(); location.hash = '#progress'; toast('Nothing was changed.'); return; }
+  if (act === 'clear-draft') { if (!confirmTap(b)) return; delete drafts[curSid]; saveDrafts(); renderToday(); window.scrollTo(0, 0); toast('Entries cleared.'); return; }
+  if (act === 'open-draft') { curSid = b.dataset.sid; summary = null; renderToday(); window.scrollTo(0, 0); return; }
+  if (act === 'discard-draft') { if (!confirmTap(b)) return; delete drafts[b.dataset.sid]; saveDrafts(); renderToday(); return; }
+  if (act === 'use-today') { d = cur(); d.date = todayISO(); d.started = d.date; touch(d); renderToday(); return; }
+  if (act === 'unskip') { d = cur(); delete d.skip[b.dataset.ex]; touch(d); relist(d); return; }
   var card = b.closest('[data-card]'); if (!card) return;
-  var exId = card.dataset.card; d = getDraft(curSid); var rows = d.rows[exId];
+  var exId = card.dataset.card; d = cur(); var rows = d.rows[exId]; if (!rows) return;
   if (act === 'done') {
-    var rowEl = b.closest('.set'), r = rows[+rowEl.dataset.i];
+    var rowEl = b.closest('.set'), r = rows[+rowEl.dataset.i]; if (!r) return;
     r.done = !r.done;
-    if (r.done && r.r === '') { r.r = String(r.t); $('[data-f="r"]', rowEl).value = r.r; }
+    if (r.done && r.r === '' && r.t) { r.r = String(r.t); $('[data-f="r"]', rowEl).value = r.r; }
     rowEl.classList.toggle('is-done', r.done); b.setAttribute('aria-pressed', r.done ? 'true' : 'false');
-    saveDrafts();
+    touch(d);
     return;
   }
-  if (act === 'addset') { var l = rows[rows.length - 1]; rows.push({ k: l.k === 'top' ? 'bo' : l.k, w: l.w, r: '', rir: '', t: l.t, done: false }); }
-  if (act === 'rmset') { if (rows.length > 1) rows.pop(); }
-  saveDrafts();
-  var n = 0; sessById(curSid).items.forEach(function (it) { if (it[0] === exId) n = it[1]; });
-  card.outerHTML = cardHTML(exId, n, d);
+  if (act === 'skip') { d.skip[exId] = true; touch(d); relist(d); return; }
+  if (act === 'addset') {
+    if (rows.length >= 12) { toast('Twelve sets is the most one exercise can hold.'); return; }
+    var l = rows[rows.length - 1], ex = EX[exId];
+    if (l.k === 'top' && ex && ex.type === 'top') rows.push({ k: 'bo', w: String(rnd(num(l.w) * ex.bo.pct)), r: '', rir: '', t: ex.bo.range[0], done: false });
+    else rows.push({ k: l.k, w: l.w, r: '', rir: '', t: l.t, done: false });
+  } else if (act === 'rmset') {
+    if (rows.length <= 1) { toast('One set is the minimum. To drop the exercise, use ' + (d.editId ? 'Remove exercise.' : 'Skip today.')); return; }
+    rows.pop();
+  } else return;
+  touch(d);
+  card.outerHTML = cardHTML(exId, d);
 }
-function dropEmptyDrafts() { for (var k in drafts) if (!hasData(drafts[k])) delete drafts[k]; saveDrafts(); }
-function finish() {
-  var sess = sessById(curSid), d = getDraft(curSid), entries = [];
-  sess.items.forEach(function (it) {
-    var sets = (d.rows[it[0]] || []).filter(function (r) { return num(r.r) > 0; }).map(function (r) {
-      var o = { k: r.k, w: num(r.w), r: Math.round(num(r.r)) }; if (r.rir !== '') o.rir = num(r.rir); return o;
+/* Reads the entry sheet into saved form. Blank rows are left out; anything that looks like a typo stops the save. */
+function collect(d) {
+  var entries = [], blanks = 0, err = '';
+  d.order.forEach(function (exId) {
+    if (d.skip[exId]) return;
+    var sets = [], name = exInfo(exId).n;
+    (d.rows[exId] || []).forEach(function (r, i) {
+      var rs = String(r.r).trim(), ws = String(r.w).trim();
+      if (rs === '' || Number(rs) === 0) { blanks++; return; }
+      var reps = Number(rs), w = Number(ws);
+      if (!isFinite(reps) || reps < 1 || reps > 100 || reps !== Math.round(reps)) { err = err || name + ', set ' + (i + 1) + ': reps must be a whole number from 1 to 100.'; return; }
+      if (ws === '' || !isFinite(w) || w <= 0 || w > 1500) { err = err || name + ', set ' + (i + 1) + ': enter the weight you used, up to 1500 lb.'; return; }
+      var o = { k: r.k, w: w, r: reps }; if (r.rir !== '' && r.rir != null && isFinite(Number(r.rir))) o.rir = Number(r.rir);
+      sets.push(o);
     });
-    if (sets.length) entries.push({ ex: it[0], sets: sets });
+    if (sets.length) entries.push({ ex: exId, sets: sets });
   });
-  if (!entries.length) { toast('Enter reps for at least one set first.'); return; }
-  var prs = [], before = {};
-  entries.forEach(function (e) {
-    var n = 0; sess.items.forEach(function (it) { if (it[0] === e.ex) n = it[1]; });
+  return { entries: entries, blanks: blanks, err: err };
+}
+function finish(btn) {
+  var d = cur(), edit = !!d.editId, today = todayISO(), c = collect(d);
+  if (c.err) { toast(c.err); return; }
+  if (!c.entries.length) { toast(edit ? 'A session needs at least one set. To remove it, delete it from History.' : 'Enter reps for at least one set first.'); return; }
+  if (!ISO.test(d.date) || isNaN(dateOf(d.date).getTime()) || d.date > today || d.date < '2000-01-01') { toast('Pick a date that is today or earlier.'); return; }
+  var bwv = 0;
+  if (!edit && String(d.bw).trim() !== '') { bwv = Number(d.bw); if (!(bwv >= 50 && bwv <= 700)) { toast('Bodyweight should be between 50 and 700 lb, or leave it blank.'); return; } }
+  if (c.blanks && !confirmTap(btn, c.blanks + (c.blanks === 1 ? ' blank set' : ' blank sets') + ' will be left out. Tap again to save')) return;
+  if (edit) {
+    var s0 = null; S.sessions.forEach(function (x) { if (x.id === d.editId) s0 = x; });
+    if (!s0) { delete drafts.__edit; saveDrafts(); renderAll(); toast('That session no longer exists.'); return; }
+    s0.date = d.date; s0.entries = c.entries; s0.note = (d.note || '').slice(0, 2000);
+    delete drafts.__edit; saveDrafts(); gen++; saveMeta();
+    curSid = null; summary = null; renderAll(); location.hash = '#progress'; toast('Session updated.');
+    return;
+  }
+  var sess = sessById(d.sid), prs = [], before = {};
+  c.entries.forEach(function (e) {
+    var n = d.n[e.ex] || defaultSets(e.ex);
     before[e.ex] = { w: plan(e.ex, n, false).w, n: n };
     if (d.deload) return;
-    var prev = bestE1(e.ex), now = 0; e.sets.forEach(function (s) { now = Math.max(now, e1rm(s.w, s.r)); });
+    var prev = bestE1(e.ex), now = 0; e.sets.forEach(function (x) { now = Math.max(now, e1rm(x.w, x.r)); });
     if (prev > 0 && now > prev + 0.01) prs.push(EX[e.ex].n);
   });
-  var s = { id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), t: Date.now(), date: d.date || todayISO(), sid: sess.id, name: sess.name, deload: !!d.deload, entries: entries, note: (d.note || '').slice(0, 2000) };
+  var s = { id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), t: Date.now(), date: d.date, sid: sess.id, name: sess.name, deload: !!d.deload, entries: c.entries, note: (d.note || '').slice(0, 2000) };
   S.sessions.push(s);
-  if (num(d.bw) > 0) addBW(s.date, num(d.bw), true);
-  saveSession(s); saveMeta();
-  delete drafts[curSid]; dropEmptyDrafts();
+  if (bwv) addBW(s.date, bwv, true);
+  delete drafts[d.sid]; saveDrafts(); gen++; saveMeta();
   var ups = [];
-  if (!d.deload) entries.forEach(function (e) {
+  if (!d.deload) c.entries.forEach(function (e) {
     var p = plan(e.ex, before[e.ex].n, false);
     if (p.w > before[e.ex].w) ups.push(EX[e.ex].n + ': ' + fmtW(before[e.ex].w) + ' → ' + fmtW(p.w) + ' lb');
   });
-  summary = { title: sess.name + ' saved for ' + fmtDate(s.date, true) + '.', prs: prs, ups: ups };
+  summary = { title: sess.name + ' saved for ' + fmtDate(s.date, true) + '.', prs: prs, ups: ups, deload: !!d.deload };
   curSid = null;
   renderAll(); window.scrollTo(0, 0);
+  if (!storageOK) toast('Not saved to this device. See the warning at the top.');
 }
 function addBW(date, w, quiet) {
-  S.meta.bw = (S.meta.bw || []).filter(function (b) { return b.d !== date; });
-  S.meta.bw.push({ d: date, w: Math.round(w * 10) / 10 });
-  S.meta.bw.sort(function (a, b) { return a.d < b.d ? -1 : 1; });
+  S.meta.bw = cleanBW((S.meta.bw || []).filter(function (b) { return b.d !== date; }).concat([{ d: date, w: w }]));
   if (!quiet) saveMeta();
 }
 
@@ -681,10 +921,10 @@ function seriesFor(exId) {
   });
 }
 function volumeLast7() {
-  var out = {}, cut = new Date(); cut.setHours(0, 0, 0, 0); cut.setDate(cut.getDate() - 6);
+  var out = {}, end = todayISO(), cut = new Date(); cut.setHours(0, 0, 0, 0); cut.setDate(cut.getDate() - 6);
   S.sessions.forEach(function (s) {
-    if (dateOf(s.date) < cut) return;
-    s.entries.forEach(function (e) { var m = (EX[e.ex] || {}).m || {}; for (var k in m) out[k] = (out[k] || 0) + m[k] * e.sets.length; });
+    if (dateOf(s.date) < cut || s.date > end) return;
+    s.entries.forEach(function (e) { var m = exInfo(e.ex).m || {}; for (var k in m) out[k] = (out[k] || 0) + m[k] * e.sets.length; });
   });
   return out;
 }
@@ -730,10 +970,10 @@ function renderProgress() {
   var ss = sorted().reverse();
   html += '<h2 class="h-sec">History</h2><div class="hist">' + ss.map(function (s) {
     var n = s.entries.reduce(function (a, e) { return a + e.sets.length; }, 0);
-    return '<details><summary><span>' + fmtDate(s.date, true) + ' · ' + esc(s.name || sessById(s.sid).name) + (s.deload ? ' (deload)' : '') + '</span><span>' + n + ' sets</span></summary><dl>' +
-      s.entries.map(function (e) { return '<div><dt>' + esc((EX[e.ex] || { n: e.ex }).n) + '</dt><dd>' + esc(fmtSets(e.sets)) + '</dd></div>'; }).join('') +
+    return '<details><summary><span>' + fmtDate(s.date, true) + ' · ' + esc(s.name || 'Session') + (s.deload ? ' (deload)' : '') + '</span><span>' + n + ' sets</span></summary><dl>' +
+      s.entries.map(function (e) { return '<div><dt>' + esc(exInfo(e.ex).n) + '</dt><dd>' + esc(fmtSets(e.sets)) + '</dd></div>'; }).join('') +
       (s.note ? '<div><dt>Notes</dt><dd>' + esc(s.note) + '</dd></div>' : '') + '</dl>' +
-      '<div class="h-actions"><button type="button" class="btn danger" data-act="del" data-id="' + esc(s.id) + '">Delete session</button></div></details>';
+      '<div class="h-actions"><button type="button" class="btn" data-act="edit" data-id="' + esc(s.id) + '">Edit</button><button type="button" class="btn danger" data-act="del" data-id="' + esc(s.id) + '">Delete session</button></div></details>';
   }).join('') +
   '<details><summary><span>' + fmtDate(BASE.date, true) + ' · Starting numbers</span><span>baseline</span></summary><dl>' +
     Object.keys(BASE.entries).map(function (id) { return '<div><dt>' + esc(EX[id].n) + '</dt><dd>' + esc(BASE.text[id] || fmtSets(BASE.entries[id])) + '</dd></div>'; }).join('') + '</dl></details></div>';
@@ -754,8 +994,13 @@ function confirmTap(btn, label) {
 }
 function progressClick(e) {
   var b = e.target.closest ? e.target.closest('[data-act]') : null; if (!b) return;
-  if (b.dataset.act === 'bw-save') { var v = num($('#bw-in').value); if (v > 0) { addBW(todayISO(), v); renderProgress(); toast('Bodyweight saved.'); } return; }
-  if (b.dataset.act === 'del') { if (!confirmTap(b)) return; deleteSession(b.dataset.id); curSid = null; renderAll(); toast('Session deleted.'); }
+  if (b.dataset.act === 'bw-save') {
+    var v = Number($('#bw-in').value);
+    if (!(v >= 50 && v <= 700)) { toast('Enter a bodyweight between 50 and 700 lb.'); return; }
+    addBW(todayISO(), v); renderProgress(); toast('Bodyweight saved.'); return;
+  }
+  if (b.dataset.act === 'edit') { startEdit(b.dataset.id); return; }
+  if (b.dataset.act === 'del') { if (!confirmTap(b)) return; deleteSession(b.dataset.id); curSid = null; summary = null; renderAll(); toast('Session deleted.'); }
 }
 
 /* ───────────── Program ───────────── */
@@ -780,7 +1025,8 @@ function renderProgram() {
     '<dt>Top sets</dt><dd>Bench and squat use one heavy set of 3–5. Log 5 and it goes up 5 lb. Log 5 with 3 or more in reserve and it goes up 10. Back-off sets follow the top set automatically.</dd>' +
     '<dt>Missed</dt><dd>Fall under the range on the first set and the load is recalculated down from what you did.</dd>' +
     '<dt>Stalled</dt><dd>Three sessions at one load with no added reps triggers a 7.5–10% reset so you can build back past the sticking point.</dd>' +
-    '<dt>Your call</dt><dd>The weight boxes are editable. Whatever you log becomes the basis for next time.</dd></dl></div>';
+    '<dt>Skipped</dt><dd>An exercise you skip, or a deload session, changes nothing. The next time you do the lift it picks up from your last real session.</dd>' +
+    '<dt>Your call</dt><dd>The weight boxes are editable. Whatever you log becomes the basis for next time, and a saved session can be corrected from History.</dd></dl></div>';
 
   html += '<h2 class="h-sec">Deload</h2><div class="card"><p class="sub">' + (deload ? 'Deload week is on, through ' + fmtDate(S.meta.deloadUntil, true) + '.' : 'Sessions since the last deload: ' + sinceDeload() + '. The app suggests an easy week after about ' + DELOAD_AFTER + ' sessions. Take it when you feel run down, skip it when you feel good.') + '</p>' +
     '<div class="row-btns"><button type="button" class="btn" data-act="' + (deload ? 'deload-end' : 'deload-start') + '">' + (deload ? 'End deload' : 'Start a deload week') + '</button></div></div>';
@@ -824,7 +1070,7 @@ function summaryText() {
   ss.forEach(function (s) {
     out.push(s.date + '  ' + (s.name || s.sid) + (s.deload ? ' (deload)' : ''));
     s.entries.forEach(function (e) {
-      out.push('  ' + (EX[e.ex] || { n: e.ex }).n + ': ' + e.sets.map(function (x) { return fmtW(x.w) + 'x' + x.r + (x.rir != null ? ' @' + x.rir + 'RIR' : ''); }).join(', '));
+      out.push('  ' + exInfo(e.ex).n + ': ' + e.sets.map(function (x) { return fmtW(x.w) + 'x' + x.r + (x.rir != null ? ' @' + x.rir + 'RIR' : ''); }).join(', '));
     });
     if (s.note) out.push('  Notes: ' + s.note);
   });
@@ -836,46 +1082,80 @@ function summaryText() {
   });
   return out.join('\n');
 }
+function backupJSON() { return JSON.stringify({ app: 'liftledger', v: 2, exported: todayISO(), meta: S.meta, sessions: S.sessions }); }
+function backupLine() { return S.meta.lastBackup ? 'Last backup: ' + fmtDate(S.meta.lastBackup, true) + '.' : (S.sessions.length ? 'You have not made a backup yet.' : 'Nothing to back up yet.'); }
+function markBackup() { S.meta.lastBackup = todayISO(); saveMeta(); var el = $('#last-backup'); if (el) el.textContent = backupLine(); }
 function renderData() {
-  var el = $('#v-data');
-  var where = 'Your log is saved in this browser, on this device. Add the page to your home screen so the phone keeps the data, and tap Export now and then to keep a backup. A backup can be imported on any other device.';
-  el.innerHTML = '<h2 class="h-sec">Where your log lives</h2><p class="sub">' + where + '</p>' +
+  var el = $('#v-data'), n = S.sessions.length;
+  el.innerHTML = '<h2 class="h-sec">Where your log lives</h2><p class="sub">' + (storageOK
+      ? 'In this browser, on this device: ' + n + (n === 1 ? ' session' : ' sessions') + ' saved. Nothing is sent anywhere. The home-screen app and the Safari tab keep separate copies, so pick one and stick with it.'
+      : 'This browser is refusing to save. Anything you enter is lost when the page closes.') + '</p>' +
+    '<h2 class="h-sec">Backup</h2><p class="sub">Because the log lives on this device only, save a backup file every week or two. <span id="last-backup">' + backupLine() + '</span></p>' +
+    '<div class="row-btns"><button type="button" class="btn primary" data-act="save-file">Save a backup file</button><button type="button" class="btn" data-act="export">Show backup as text</button></div>' +
+    '<h2 class="h-sec">Restore</h2><p class="sub">Choose a backup file, or paste backup text into the box, then tap Import. Sessions already here are kept and never duplicated.</p>' +
+    '<textarea class="io" id="io" aria-label="Backup text" placeholder="Backup text"></textarea>' +
+    '<div class="row-btns"><label class="btn file-btn">Choose backup file<input type="file" id="io-file" accept=".json,.txt,application/json,text/plain"></label><button type="button" class="btn" data-act="copy-io">Copy text</button><button type="button" class="btn" data-act="import">Import</button></div>' +
     '<h2 class="h-sec">Send your log to Claude</h2><p class="sub">Copies your last 12 sessions and the next prescriptions as text. Paste it into a chat when you want the program reviewed or changed.</p>' +
-    '<div class="row-btns"><button type="button" class="btn primary" data-act="copy-summary">Copy training summary</button></div>' +
-    '<h2 class="h-sec">Backup</h2><p class="sub">Export gives you everything as text. To restore, paste a backup into the box and tap Import.</p>' +
-    '<textarea class="io" id="io" aria-label="Backup text" placeholder="Backup text appears here"></textarea>' +
-    '<div class="row-btns"><button type="button" class="btn" data-act="export">Export</button><button type="button" class="btn" data-act="copy-io">Copy</button><button type="button" class="btn" data-act="import">Import</button></div>' +
+    '<div class="row-btns"><button type="button" class="btn" data-act="copy-summary">Copy training summary</button></div>' +
     '<h2 class="h-sec">Start over</h2><p class="sub">Deletes every logged session and bodyweight entry. Your 12 Nov starting numbers stay.</p>' +
-    '<div class="row-btns"><button type="button" class="btn danger" data-act="reset">Delete all logged data</button></div>';
+    '<div class="row-btns"><button type="button" class="btn danger" data-act="reset">Delete all logged data</button></div>' +
+    '<p class="small muted">Version ' + VERSION + '</p>';
 }
 function copyText(txt) {
-  function fallback() { var io = $('#io'); if (io) { io.value = txt; io.focus(); io.select(); } toast('Copy blocked here. The text is selected in the box, copy it from there.'); }
+  function fallback() { var io = $('#io'); if (io) { io.value = txt; io.focus(); io.select(); } toast('Copy is blocked here. The text is selected in the box, copy it from there.'); }
   try { navigator.clipboard.writeText(txt).then(function () { toast('Copied.'); }, fallback); } catch (e) { fallback(); }
+}
+function saveBackupFile() {
+  var json = backupJSON(), name = 'lift-ledger-backup-' + todayISO() + '.json', io = $('#io');
+  try {
+    var file = new File([json], name, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {   /* phones: opens the share sheet, so the file can go to Files, Notes or mail */
+      navigator.share({ files: [file], title: 'Lift Ledger backup' }).then(markBackup, function () {});
+      return;
+    }
+  } catch (e) {}
+  try {
+    var url = URL.createObjectURL(new Blob([json], { type: 'application/json' })), a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+    markBackup(); toast('Backup file saved.');
+  } catch (e) { if (io) io.value = json; toast('Could not save a file here. The backup text is in the box, copy it somewhere safe.'); }
+}
+function dataChange(e) {
+  var t = e.target; if (!t || t.id !== 'io-file' || !t.files || !t.files[0]) return;
+  var f = t.files[0];
+  if (f.size > 20 * 1024 * 1024) { toast('That file is too large to be a backup.'); t.value = ''; return; }
+  var rd = new FileReader();
+  rd.onload = function () { var io = $('#io'); if (io) io.value = String(rd.result || ''); t.value = ''; toast('Backup loaded. Tap Import to add it.'); };
+  rd.onerror = function () { t.value = ''; toast('That file could not be read.'); };
+  rd.readAsText(f);
 }
 function dataClick(e) {
   var b = e.target.closest ? e.target.closest('[data-act]') : null; if (!b) return;
   var act = b.dataset.act, io = $('#io');
   if (act === 'copy-summary') { copyText(summaryText()); return; }
-  if (act === 'export') { io.value = JSON.stringify({ app: 'liftledger', v: 1, meta: S.meta, sessions: S.sessions }); toast('Backup is in the box.'); return; }
-  if (act === 'copy-io') { if (io.value) copyText(io.value); return; }
+  if (act === 'save-file') { if (!S.sessions.length && !(S.meta.bw || []).length) { toast('Nothing to back up yet.'); return; } saveBackupFile(); return; }
+  if (act === 'export') { io.value = backupJSON(); markBackup(); toast('Backup text is in the box. Copy it somewhere safe.'); return; }
+  if (act === 'copy-io') { if (io.value) copyText(io.value); else toast('The box is empty.'); return; }
   if (act === 'import') {
-    var d; try { d = JSON.parse(io.value); } catch (err) { toast('That is not a valid backup. Paste the full exported text.'); return; }
-    if (!d || !Array.isArray(d.sessions)) { toast('That is not a valid backup. Paste the full exported text.'); return; }
-    if (!confirmTap(b, 'Tap again to add ' + d.sessions.filter(validSession).length + ' sessions')) return;
-    var have = {}, hadNone = !S.sessions.length; S.sessions.forEach(function (s) { have[s.id] = 1; });
-    var added = 0;
-    d.sessions.filter(validSession).forEach(function (s) {
-      if (have[s.id]) return;
-      S.sessions.push(s); saveSession(s); added++;
-    });
-    if (d.meta) { (d.meta.bw || []).forEach(function (x) { if (x && x.d && x.w) addBW(x.d, x.w, true); }); }
-    saveMeta(); curSid = null; renderAll(); toast('Imported ' + added + ' sessions.'); return;
+    var d = parse(io.value);
+    if (!d || typeof d !== 'object' || !Array.isArray(d.sessions)) { toast('That is not a Lift Ledger backup. Paste the full backup text or choose the file.'); return; }
+    var have = {}; S.sessions.forEach(function (s) { have[s.id] = 1; });
+    var fresh = cleanSessions(d.sessions).filter(function (s) { return !have[s.id]; });
+    var haveBW = {}; (S.meta.bw || []).forEach(function (x) { haveBW[x.d] = 1; });
+    var bw = cleanBW(d.meta && d.meta.bw).filter(function (x) { return !haveBW[x.d]; });
+    if (!fresh.length && !bw.length) { toast('Nothing new in that backup. Everything in it is already here.'); return; }
+    if (!confirmTap(b, 'Tap again to add ' + fresh.length + (fresh.length === 1 ? ' session' : ' sessions'))) return;
+    fresh.forEach(function (s) { S.sessions.push(s); });
+    S.meta.bw = cleanBW((S.meta.bw || []).concat(bw));
+    gen++; saveMeta(); curSid = null; summary = null; renderAll();
+    toast('Imported ' + fresh.length + (fresh.length === 1 ? ' session.' : ' sessions.'));
+    return;
   }
   if (act === 'reset') {
     if (!confirmTap(b, 'Tap again to delete everything')) return;
-    S.sessions.slice().forEach(function (s) { deleteSession(s.id); });
-    S.meta.deloadUntil = ''; S.meta.snooze = 0; S.meta.bw = []; saveMeta();
-    drafts = {}; saveDrafts(); curSid = null; summary = null; renderAll(); toast('All logged data deleted.');
+    S = { meta: defMeta(), sessions: [] }; drafts = {};
+    gen++; saveMeta(); saveDrafts(); curSid = null; summary = null; renderAll(); toast('All logged data deleted.');
   }
 }
 
@@ -889,9 +1169,17 @@ function showTab() {
   if (t === 'data') renderData();
   window.scrollTo(0, 0);
 }
-function renderAll() { renderToday(); renderProgress(); renderProgram(); renderData(); }
+function renderAll() { renderedDay = todayISO(); renderToday(); renderProgress(); renderProgram(); renderData(); }
+/* A page left open overnight (the home-screen app rarely reloads) moves on to the new day's session. */
+function dayCheck() {
+  if (todayISO() === renderedDay) return;
+  var d = drafts[curSid];
+  if (!(d && d.touched && hasData(d))) curSid = null;
+  summary = null; renderAll();
+}
 
 function start() {
+  storageOK = storageWorks(); renderWarn();
   loadLocal();
   renderAll(); showTab();
   var today = $('#v-today');
@@ -900,8 +1188,19 @@ function start() {
   $('#v-progress').addEventListener('change', function (e) { if (e.target.id === 'chart-ex') { chartEx = e.target.value; renderProgress(); } });
   $('#v-program').addEventListener('click', todayClick);
   $('#v-data').addEventListener('click', dataClick);
+  $('#v-data').addEventListener('change', dataChange);
   window.addEventListener('hashchange', showTab);
   var rz = null; window.addEventListener('resize', function () { clearTimeout(rz); rz = setTimeout(function () { if (!$('#v-progress').hidden) drawCharts(); }, 150); });
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') dayCheck(); });
+  window.addEventListener('pageshow', dayCheck); window.addEventListener('focus', dayCheck);
+  /* The same log open in a second tab: pick up what the other tab saved instead of overwriting it. */
+  window.addEventListener('storage', function (e) {
+    if (e.key !== null && e.key !== LS_KEY && e.key !== DRAFT_KEY) return;
+    loadLocal(); gen++;
+    if (!(drafts[curSid] && drafts[curSid].touched)) curSid = null;
+    renderAll();
+  });
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}); } catch (e) {}
   try { if (navigator.wakeLock) { var lock = function () { navigator.wakeLock.request('screen').catch(function () {}); }; lock(); document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') lock(); }); } } catch (e) {}
 }
 start();
