@@ -358,7 +358,7 @@ var BASE = { date: '2026-11-12', entries: {
   incbb:    [{ w: 185, r: 5 }],
   pecdeck:  [{ w: 145, r: 12 }],
   incdb:    [{ w: 60, r: 11 }, { w: 60, r: 11 }, { w: 60, r: 11 }]
-}, text: { incdb: '60 × 10–12, 3 sets' } };
+}, text: { incdb: '60 × 10–12, 3 sets' }, bw: { d: '2026-11-13', w: 173 } };
 
 var MUSCLES = [
   ['chest', 'Chest', 10, 20], ['back', 'Back', 10, 20], ['shoulders', 'Shoulders', 10, 20],
@@ -401,7 +401,7 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
-var VERSION = '13 Nov 2026, build 6';
+var VERSION = '13 Nov 2026, build 7';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
 var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
 /* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
@@ -990,6 +990,44 @@ function volumePlanned(withOptional) {
   return out;
 }
 
+/* ───────────── Bodyweight ───────────── */
+function bwSeries() {   /* starting weight plus everything logged; a logged entry on the same day wins */
+  var by = {}; by[BASE.bw.d] = BASE.bw.w;
+  (S.meta.bw || []).forEach(function (b) { by[b.d] = b.w; });
+  return Object.keys(by).sort().map(function (d) { return { d: d, w: by[d] }; });
+}
+function bwInfo() {
+  var all = bwSeries(), last = all[all.length - 1], win = all.filter(function (p) { return p.d >= addDays(last.d, -41); }), rate = null;
+  if (win.length >= 2) {
+    var t0 = dateOf(win[0].d).getTime(), xs = win.map(function (p) { return Math.round((dateOf(p.d).getTime() - t0) / 864e5); });
+    if (xs[xs.length - 1] >= 14) {
+      var mx = avg(xs), my = avg(win.map(function (p) { return p.w; })), sxy = 0, sxx = 0;
+      xs.forEach(function (x, i) { sxy += (x - mx) * (win[i].w - my); sxx += (x - mx) * (x - mx); });
+      if (sxx) rate = sxy / sxx * 7;
+    }
+  }
+  var kg = last.w / 2.2046;
+  return { w: last.w, d: last.d, rate: rate, lo: Math.round(last.w * 0.0025 * 10) / 10, hi: Math.round(last.w * 0.005 * 10) / 10,
+    pLo: Math.round(kg * 1.6 / 5) * 5, pHi: Math.round(kg * 2.2 / 5) * 5, n: all.length };
+}
+function bwHTML() {
+  var b = bwInfo(), band = b.lo + '–' + b.hi + ' lb a week', trend;
+  if (b.rate == null) trend = 'Weigh in a few mornings a week, same time of day. Your trend shows here after two weeks of entries.';
+  else {
+    var r = Math.round(b.rate * 10) / 10, txt = (r < 0 ? '−' : '+') + Math.abs(r).toFixed(1) + ' lb a week over the last few weeks. ';
+    trend = txt + (r < -0.1 ? 'You are losing weight, which works against a bigger bench. Eat more.'
+      : r < b.lo ? 'That is slower than the ' + band + ' that suits building muscle. Eat a little more.'
+      : r > b.hi ? 'That is faster than ' + band + ', so more of it will be fat than muscle. Ease off slightly.'
+      : 'That is inside the ' + band + ' range. Keep going.');
+  }
+  return '<h2 class="h-sec">Bodyweight</h2><div class="card">' +
+    '<div class="goal-num"><span class="goal-v">' + fmtW(b.w) + '<small>lb on ' + fmtDate(b.d) + '</small></span></div>' +
+    '<div class="bw-form"><input id="bw-in" type="number" inputmode="decimal" step="any" min="0" placeholder="Weight today, lb" aria-label="Bodyweight today in pounds"><button type="button" class="btn" data-act="bw-save">Save</button></div>' +
+    '<div class="chart" id="chart-bw"></div>' +
+    '<p class="sub" id="bw-trend">' + trend + '</p>' +
+    '<p class="small muted">Targets at ' + fmtW(b.w) + ' lb: gain ' + band + ' (0.25–0.5% of bodyweight; with your training history, aim for the lower half), on about ' + b.pLo + '–' + b.pHi + ' g of protein a day and a small calorie surplus of 5–10%.</p></div>';
+}
+
 /* ───────────── Bench goal ───────────── */
 var GOAL = { target: 315, ids: ['bench', 'benchvol'], was: 285 };
 function goalInfo() {
@@ -1036,6 +1074,7 @@ function goalHTML() {
     '<div class="goal-track" role="img" aria-label="Estimated max ' + Math.round(g.cur) + ' of ' + T + ' pounds"><div class="goal-fill" style="width:' + pos(g.cur) + '%"></div>' + (was ? '<div class="goal-mark" style="left:' + pos(GOAL.was) + '%"></div>' : '') + '</div>' +
     '<div class="goal-scale"><span>' + Math.round(base) + (base === g.start ? ' start' : '') + '</span>' + (was ? '<span class="goal-was" style="left:' + pos(GOAL.was) + '%">' + GOAL.was + ', your old best</span>' : '') + '<span>' + T + '</span></div>' +
     '<p class="sub">' + line + '</p>' +
+    (g.heaviest < T ? '<p class="small muted">At ' + fmtW(bwInfo().w) + ' lb, ' + T + ' is ' + (T / bwInfo().w).toFixed(2) + ' times your bodyweight. Your ' + GOAL.was + ' came at about 180 lb, which was 1.58 times, so gaining a little weight makes the goal noticeably easier.</p>' : '') +
     (g.cur < T ? '<p class="small muted">What it takes: a top set of ' + w5 + ' × 5 or ' + w3 + ' × 3 puts the estimate at ' + T + '. Monday\'s top set climbs there 5 lb at a time, and Friday\'s volume bench builds the muscle and practice behind it.</p>' : '') +
     '<p class="small muted">Estimated max is your best bench set of the last four weeks, as weight × (1 + reps ÷ 30)' + (Math.round(g.low) < Math.round(g.cur) ? '. Treat it as a guide: a more cautious formula reads the same set as ' + Math.round(g.low) + ', while a set that left reps in reserve understates you. Only a real single settles it.' : '.') + '</p></div>';
 }
@@ -1070,16 +1109,14 @@ function renderProgress() {
   }).join('') + '</div><div class="legend"><span><i class="lg-bar"></i>Your last 7 days</span><span><i class="lg-zone"></i>Target zone</span><span><i class="lg-tick"></i>The plan, 6 days</span></div>' +
   '<p class="small muted">A set that trains the muscle directly counts as 1, indirectly as 0.5 (a row is half a set for biceps). Upper-body zones are 10–20 sets a week. Leg zones are set lower on purpose.</p></div>';
 
-  var bw = S.meta.bw || [];
-  html += '<h2 class="h-sec">Bodyweight</h2><div class="card"><div class="bw-form"><input id="bw-in" type="number" inputmode="decimal" step="any" min="0" placeholder="Weight today, lb" aria-label="Bodyweight today in pounds"><button type="button" class="btn" data-act="bw-save">Save</button></div>' +
-    (bw.length ? '<div class="chart" id="chart-bw"></div>' : '<p class="small muted">Weigh in a few mornings a week. For lean size, a slow gain of roughly 0.25–0.5% of bodyweight per week is a sensible pace.</p>') + '</div>';
+  html += bwHTML();
 
   el.innerHTML = html;
   if (!el.hidden) drawCharts();
 }
 function drawCharts() {
   var c = $('#chart-main'); if (c) lineChart(c, seriesFor(chartEx), 'lb');
-  var b = $('#chart-bw'); if (b) lineChart(b, (S.meta.bw || []).map(function (x) { return { x: dateOf(x.d).getTime(), y: x.w, d: fmtDate(x.d) }; }), 'lb');
+  var b = $('#chart-bw'); if (b) lineChart(b, bwSeries().map(function (x) { return { x: dateOf(x.d).getTime(), y: x.w, d: fmtDate(x.d) }; }), 'lb');
 }
 var armed = null, armT = null;
 function confirmTap(btn, label) {
@@ -1225,7 +1262,7 @@ function renderProgram() {
     '<h3>Train muscles at long lengths</h3><p>Overhead triceps extensions grew the triceps substantially more than pushdowns over 12 weeks [11], and seated leg curls beat lying ones for the hamstrings [12]. The same reasoning picks deep incline pressing and RDLs. The direct evidence is strongest for triceps and hamstrings, and both studies used mostly untrained people. For biceps it is mixed: incline and preacher curls seem to grow different regions of the muscle, so the plan uses several curl types and does not bet on one.</p>' +
     '<h3>Progress by reps, then load</h3><p>Adding reps at a fixed load and adding load at fixed reps produced similar growth over 8 weeks [13]. Double progression uses both, and it works with 5 lb jumps on small lifts.</p>' +
     '<h3>Deloads are optional</h3><p>A scheduled week off in the middle of a 9-week programme did not improve growth and slightly reduced strength gains in Coleman 2024 [14]. So the app offers a deload every five to six weeks and leaves the choice to how you feel. Training six or seven days in a row is fine while each muscle gets its two days of recovery, and Thursday is the day to drop when you feel run down.</p>' +
-    '<h3>Outside the gym</h3><p>Protein at about 1.6 g per kg of bodyweight per day captures most of the benefit for muscle gain [15]. A small calorie surplus and 7 or more hours of sleep do the rest.</p>' +
+    '<h3>Outside the gym</h3><p>Protein at about 1.6 g per kg of bodyweight per day captures most of the benefit for muscle gain [15], and 1.6–2.2 g per kg is the range recommended for lifters trying to add size [18]. The same review recommends gaining 0.25–0.5% of bodyweight a week, with experienced lifters at the slow end on a surplus of only 5–10%, because faster gain adds fat, not muscle. The Progress tab turns those into numbers for your current weight and checks your trend against them. Seven or more hours of sleep does the rest.</p>' +
     '<h3>References</h3><ol class="refs">' +
     '<li>Schoenfeld BJ, Ogborn D, Krieger JW. Dose-response relationship between weekly resistance training volume and increases in muscle mass. J Sports Sci. 2017.</li>' +
     '<li>Baz-Valle E, et al. A systematic review of the effects of different resistance training volumes on muscle hypertrophy. J Hum Kinet. 2022.</li>' +
@@ -1244,6 +1281,7 @@ function renderProgram() {
     '<li>Morton RW, et al. A systematic review, meta-analysis and meta-regression of the effect of protein supplementation on resistance training-induced gains in muscle mass and strength. Br J Sports Med. 2018.</li>' +
     '<li>Zhang X, et al. Auto-regulation method vs. fixed-loading method in maximum strength training for athletes: a systematic review and meta-analysis. Front Physiol. 2021.</li>' +
     '<li>Androulakis-Korakakis P, et al. The minimum effective training dose required for 1RM strength in powerlifters. Front Sports Act Living. 2021.</li>' +
+    '<li>Iraki J, Fitschen P, Espinar S, Helms E. Nutrition recommendations for bodybuilders in the off-season: a narrative review. Sports. 2019;7(7):154.</li>' +
     '</ol><p class="small">This is a training plan, not medical advice. Let whoever is managing the hip set the limits for squats and RDLs.</p></div>';
   el.innerHTML = html;
 }
@@ -1260,7 +1298,7 @@ function summaryText() {
     });
     if (s.note) out.push('  Notes: ' + s.note);
   });
-  var bw = S.meta.bw || []; if (bw.length) out.push('', 'Bodyweight: ' + bw.slice(-8).map(function (b) { return b.d + ' ' + b.w; }).join(', '));
+  out.push('', 'Bodyweight: ' + bwSeries().slice(-8).map(function (b) { return b.d + ' ' + b.w; }).join(', '));
   out.push('', 'NEXT PRESCRIPTIONS');
   ROT.forEach(function (r) {
     out.push(DOWF[r.dow] + ', ' + r.name);
@@ -1283,7 +1321,7 @@ function renderData() {
     '<div class="row-btns"><label class="btn file-btn">Choose backup file<input type="file" id="io-file" accept=".json,.txt,application/json,text/plain"></label><button type="button" class="btn" data-act="copy-io">Copy text</button><button type="button" class="btn" data-act="import">Import</button></div>' +
     '<h2 class="h-sec">Send your log to Claude</h2><p class="sub">Copies your last 12 sessions and the next prescriptions as text. Paste it into a chat when you want the program reviewed or changed.</p>' +
     '<div class="row-btns"><button type="button" class="btn" data-act="copy-summary">Copy training summary</button></div>' +
-    '<h2 class="h-sec">Start over</h2><p class="sub">Deletes every logged session and bodyweight entry. Your 12 Nov starting numbers stay.</p>' +
+    '<h2 class="h-sec">Start over</h2><p class="sub">Deletes every logged session and bodyweight entry. Your starting numbers stay.</p>' +
     '<div class="row-btns"><button type="button" class="btn danger" data-act="reset">Delete all logged data</button></div>' +
     '<p class="small muted">Version ' + VERSION + '</p>';
 }
