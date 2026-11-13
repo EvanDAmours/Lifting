@@ -36,7 +36,7 @@
   --warn-soft: #fbeccb;
   --bad: #b3201f;
   --bad-soft: #fbdcdb;
-  --font-display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Barlow Condensed", "Avenir Next Condensed", "Roboto Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
   --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
@@ -76,8 +76,8 @@ h1, h2, h3, p { margin: 0; }
 .num { font-variant-numeric: tabular-nums; }
 
 .nav { position: fixed; inset: auto 0 0 0; z-index: 9; background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
-.nav-in { display: grid; grid-template-columns: repeat(4, 1fr); }
-.nav a { display: block; text-align: center; padding: 14px 4px 12px; text-decoration: none; color: var(--ink-3); font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; letter-spacing: 0.06em; text-transform: uppercase; border-top: 3px solid transparent; margin-top: -1px; }
+.nav-in { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.nav a { display: block; text-align: center; padding: 14px 1px 12px; text-decoration: none; color: var(--ink-3); font-family: var(--font-display); font-weight: 600; font-size: clamp(0.8rem, 3.6vw, 1.05rem); letter-spacing: 0.03em; overflow: hidden; text-transform: uppercase; white-space: nowrap; border-top: 3px solid transparent; margin-top: -1px; }
 .nav a[aria-current="page"] { color: var(--accent); border-top-color: var(--accent); }
 
 .hero { display: flex; flex-direction: column; gap: 10px; }
@@ -134,6 +134,7 @@ h1, h2, h3, p { margin: 0; }
 .skip-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--surface); border: 1px dashed var(--line); border-radius: 12px; padding: 8px 8px 8px 14px; color: var(--ink-2); font-size: 0.92rem; }
 .skip-row span { min-width: 0; }
 .add-ex { display: flex; flex-direction: column; gap: 4px; }
+.add-ex select { color: var(--ink); font-size: 16px; }
 select.field { height: 46px; }
 .file-btn { position: relative; overflow: hidden; display: inline-flex; align-items: center; cursor: pointer; }
 .file-btn input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
@@ -192,6 +193,20 @@ table.data th { color: var(--ink-3); font-weight: 500; }
 .bw-form { display: flex; gap: 8px; }
 .bw-form input { flex: 1; min-width: 0; height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); padding: 0 12px; font-size: 16px; }
 
+.cal { display: flex; flex-direction: column; gap: 4px; }
+.cal-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal-head span { text-align: center; font-size: 0.7rem; letter-spacing: 0.08em; color: var(--ink-3); }
+.cal-day { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 46px; padding: 3px 0; border: 1px solid transparent; border-radius: 8px; background: var(--bg); color: var(--ink-3); font: inherit; min-width: 0; }
+.cal-n { font-size: 0.66rem; line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cal-s { font-family: var(--font-display); font-weight: 700; font-size: 0.95rem; line-height: 1.1; min-height: 1.05em; letter-spacing: 0.02em; }
+.cal-day.has { background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+.cal-day.has.is-deload { background: var(--accent-soft); color: var(--accent); }
+.cal-day.is-today { border-color: var(--ink); }
+.cal-day.is-future { opacity: 0.45; }
+.past { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.past li { display: grid; grid-template-columns: 5.2rem minmax(0, 1fr); gap: 8px; }
+.past li span:first-child { color: var(--ink-3); }
+.hist dt .chip, table.data .chip { margin-left: 4px; font-size: 0.68rem; padding: 1px 7px; }
 .hist { display: flex; flex-direction: column; gap: 8px; }
 .hist details { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
 .hist summary { cursor: pointer; display: flex; justify-content: space-between; gap: 10px; font-weight: 600; font-size: 0.95rem; }
@@ -229,6 +244,7 @@ textarea.io { width: 100%; min-height: 120px; border: 1px solid var(--line); bor
 <main class="wrap">
   <div class="note-box bad" id="warn" role="alert" hidden><strong>This browser is not saving your log</strong><span>Private browsing or a full device can block saving, and anything you enter would be lost when the page closes. Open the page in a normal browser window. If you have sessions here already, go to Data and copy a backup before you leave.</span></div>
   <section class="view" id="v-today"></section>
+  <section class="view" id="v-history" hidden></section>
   <section class="view" id="v-progress" hidden></section>
   <section class="view" id="v-program" hidden></section>
   <section class="view" id="v-data" hidden></section>
@@ -239,6 +255,7 @@ textarea.io { width: 100%; min-height: 120px; border: 1px solid var(--line); bor
 <nav class="nav" aria-label="Sections">
   <div class="nav-in">
     <a href="#today" data-tab="today">Today</a>
+    <a href="#history" data-tab="history">History</a>
     <a href="#progress" data-tab="progress">Progress</a>
     <a href="#program" data-tab="program">Program</a>
     <a href="#data" data-tab="data">Data</a>
@@ -353,7 +370,7 @@ function todayISO() { var d = new Date(); return d.getFullYear() + '-' + pad(d.g
 function dateOf(iso) { var p = String(iso).split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
 var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-function fmtDate(iso, withDow) { var d = dateOf(iso); return (withDow ? DOW[d.getDay()] + ' ' : '') + MON[d.getMonth()] + ' ' + d.getDate(); }
+function fmtDate(iso, withDow) { var d = dateOf(iso); return (withDow ? DOW[d.getDay()] + ' ' : '') + MON[d.getMonth()] + ' ' + d.getDate() + (d.getFullYear() !== new Date().getFullYear() ? ', ' + d.getFullYear() : ''); }
 function fmtW(w) { return String(Math.round(w * 10) / 10); }
 function fmtSets(sets) {
   var out = [], i = 0;
@@ -373,7 +390,7 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
-var VERSION = '13 Nov 2026, build 3';
+var VERSION = '13 Nov 2026, build 4';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
 var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
 /* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
@@ -653,6 +670,12 @@ function metaHTML(exId, d, p) {
   }
   return '<div class="ex-meta">' + meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>';
 }
+function pastHTML(exId) {
+  var h = hist(exId).slice(-6).reverse(); if (!h.length) return '';
+  return '<details class="how"><summary>Past sessions</summary><ul class="past">' + h.map(function (e) {
+    return '<li><span>' + fmtDate(e.date) + (e.base ? ', start' : '') + '</span><span>' + esc((e.base && BASE.text[exId]) || fmtSets(e.sets)) + '</span></li>';
+  }).join('') + '</ul></details>';
+}
 function cardHTML(exId, d) {
   var ex = exInfo(exId), rows = d.rows[exId] || [], n = d.n[exId] || rows.length, edit = !!d.editId;
   var p = (!edit && EX[exId]) ? plan(exId, n, d.deload) : null;
@@ -668,6 +691,7 @@ function cardHTML(exId, d) {
     '<div class="ex-actions"><button type="button" class="btn sm" data-act="rmset">− Set</button><button type="button" class="btn sm" data-act="addset">+ Set</button>' +
       '<button type="button" class="btn sm" data-act="skip">' + (edit ? 'Remove exercise' : 'Skip today') + '</button></div>' +
     (ex.cue ? '<details class="how"><summary>How to do it</summary><p>' + esc(ex.cue) + '</p></details>' : '') +
+    (p ? pastHTML(exId) : '') +
   '</article>';
 }
 function listHTML(d) {
@@ -779,7 +803,7 @@ function todayClick(e) {
   if (act === 'deload-snooze') { S.meta.snooze = S.sessions.length + 5; saveMeta(); renderToday(); return; }
   if (act === 'deload-end') { S.meta.deloadUntil = ''; gen++; saveMeta(); renderAll(); toast('Deload ended.'); return; }
   if (act === 'finish') { finish(b); return; }
-  if (act === 'cancel-edit') { delete drafts.__edit; saveDrafts(); renderToday(); location.hash = '#progress'; toast('Nothing was changed.'); return; }
+  if (act === 'cancel-edit') { delete drafts.__edit; saveDrafts(); renderToday(); location.hash = '#history'; toast('Nothing was changed.'); return; }
   if (act === 'clear-draft') { if (!confirmTap(b)) return; delete drafts[curSid]; saveDrafts(); renderToday(); window.scrollTo(0, 0); toast('Entries cleared.'); return; }
   if (act === 'open-draft') { curSid = b.dataset.sid; summary = null; renderToday(); window.scrollTo(0, 0); return; }
   if (act === 'discard-draft') { if (!confirmTap(b)) return; delete drafts[b.dataset.sid]; saveDrafts(); renderToday(); return; }
@@ -830,7 +854,7 @@ function collect(d) {
 function finish(btn) {
   var d = cur(), edit = !!d.editId, today = todayISO(), c = collect(d);
   if (c.err) { toast(c.err); return; }
-  if (!c.entries.length) { toast(edit ? 'A session needs at least one set. To remove it, delete it from History.' : 'Enter reps for at least one set first.'); return; }
+  if (!c.entries.length) { toast(edit ? 'A session needs at least one set. To remove it, delete it on the History tab.' : 'Enter reps for at least one set first.'); return; }
   if (!ISO.test(d.date) || isNaN(dateOf(d.date).getTime()) || d.date > today || d.date < '2000-01-01') { toast('Pick a date that is today or earlier.'); return; }
   var bwv = 0;
   if (!edit && String(d.bw).trim() !== '') { bwv = Number(d.bw); if (!(bwv >= 50 && bwv <= 700)) { toast('Bodyweight should be between 50 and 700 lb, or leave it blank.'); return; } }
@@ -840,7 +864,7 @@ function finish(btn) {
     if (!s0) { delete drafts.__edit; saveDrafts(); renderAll(); toast('That session no longer exists.'); return; }
     s0.date = d.date; s0.entries = c.entries; s0.note = (d.note || '').slice(0, 2000);
     delete drafts.__edit; saveDrafts(); gen++; saveMeta();
-    curSid = null; summary = null; renderAll(); location.hash = '#progress'; toast('Session updated.');
+    curSid = null; summary = null; renderAll(); location.hash = '#history'; toast('Session updated.');
     return;
   }
   var sess = sessById(d.sid), prs = [], before = {};
@@ -967,16 +991,6 @@ function renderProgress() {
   html += '<h2 class="h-sec">Bodyweight</h2><div class="card"><div class="bw-form"><input id="bw-in" type="number" inputmode="decimal" step="any" min="0" placeholder="Weight today, lb" aria-label="Bodyweight today in pounds"><button type="button" class="btn" data-act="bw-save">Save</button></div>' +
     (bw.length ? '<div class="chart" id="chart-bw"></div>' : '<p class="small muted">Weigh in a few mornings a week. For lean size, a slow gain of roughly 0.25–0.5% of bodyweight per week is a sensible pace.</p>') + '</div>';
 
-  var ss = sorted().reverse();
-  html += '<h2 class="h-sec">History</h2><div class="hist">' + ss.map(function (s) {
-    var n = s.entries.reduce(function (a, e) { return a + e.sets.length; }, 0);
-    return '<details><summary><span>' + fmtDate(s.date, true) + ' · ' + esc(s.name || 'Session') + (s.deload ? ' (deload)' : '') + '</span><span>' + n + ' sets</span></summary><dl>' +
-      s.entries.map(function (e) { return '<div><dt>' + esc(exInfo(e.ex).n) + '</dt><dd>' + esc(fmtSets(e.sets)) + '</dd></div>'; }).join('') +
-      (s.note ? '<div><dt>Notes</dt><dd>' + esc(s.note) + '</dd></div>' : '') + '</dl>' +
-      '<div class="h-actions"><button type="button" class="btn" data-act="edit" data-id="' + esc(s.id) + '">Edit</button><button type="button" class="btn danger" data-act="del" data-id="' + esc(s.id) + '">Delete session</button></div></details>';
-  }).join('') +
-  '<details><summary><span>' + fmtDate(BASE.date, true) + ' · Starting numbers</span><span>baseline</span></summary><dl>' +
-    Object.keys(BASE.entries).map(function (id) { return '<div><dt>' + esc(EX[id].n) + '</dt><dd>' + esc(BASE.text[id] || fmtSets(BASE.entries[id])) + '</dd></div>'; }).join('') + '</dl></details></div>';
   el.innerHTML = html;
   if (!el.hidden) drawCharts();
 }
@@ -997,10 +1011,95 @@ function progressClick(e) {
   if (b.dataset.act === 'bw-save') {
     var v = Number($('#bw-in').value);
     if (!(v >= 50 && v <= 700)) { toast('Enter a bodyweight between 50 and 700 lb.'); return; }
-    addBW(todayISO(), v); renderProgress(); toast('Bodyweight saved.'); return;
+    addBW(todayISO(), v); renderProgress(); renderHistory(); toast('Bodyweight saved.'); return;
   }
-  if (b.dataset.act === 'edit') { startEdit(b.dataset.id); return; }
-  if (b.dataset.act === 'del') { if (!confirmTap(b)) return; deleteSession(b.dataset.id); curSid = null; summary = null; renderAll(); toast('Session deleted.'); }
+}
+
+/* ───────────── History ───────────── */
+var histFilter = '';
+function abbr(name) { var w = String(name || '').split(/[^A-Za-z0-9]+/).filter(Boolean); return (w.length > 1 ? w.map(function (x) { return x.charAt(0); }).join('') : String(name || '').slice(0, 2)).slice(0, 3).toUpperCase() || '•'; }
+function bestOfSets(sets) { var b = 0; sets.forEach(function (s) { b = Math.max(b, e1rm(s.w, s.r)); }); return b; }
+/* Which lifts were a new best on the day they were logged, per session. */
+function bestsBySession() {
+  var best = {}, out = {};
+  Object.keys(BASE.entries).forEach(function (id) { best[id] = bestOfSets(BASE.entries[id]); });
+  sorted().forEach(function (s) {
+    if (s.deload) return;
+    s.entries.forEach(function (e) {
+      var m = bestOfSets(e.sets);
+      if (best[e.ex] !== undefined && m > best[e.ex] + 0.01) { out[s.id] = out[s.id] || {}; out[s.id][e.ex] = 1; }
+      if (!(best[e.ex] >= m)) best[e.ex] = m;
+    });
+  });
+  return out;
+}
+function calendarHTML() {
+  var today = todayISO(), d0 = dateOf(today), byDate = {};
+  S.sessions.forEach(function (s) { (byDate[s.date] = byDate[s.date] || []).push(s); });
+  var start = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() - ((d0.getDay() + 6) % 7) - 35);   /* Monday, five weeks back */
+  var html = '<div class="cal"><div class="cal-row cal-head">' + ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(function (x) { return '<span>' + x + '</span>'; }).join('') + '</div>';
+  for (var w = 0; w < 6; w++) {
+    html += '<div class="cal-row">';
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + w * 7 + i);
+      var iso = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()), list = byDate[iso] || [];
+      var cls = 'cal-day' + (iso === today ? ' is-today' : '') + (iso > today ? ' is-future' : '');
+      var num = '<span class="cal-n">' + (d.getDate() === 1 || (w === 0 && i === 0) ? MON[d.getMonth()] + ' ' : '') + d.getDate() + '</span>';
+      if (list.length) {
+        var s = list[list.length - 1];
+        html += '<button type="button" class="' + cls + ' has' + (s.deload ? ' is-deload' : '') + '" data-act="cal" data-id="' + esc(s.id) + '" aria-label="' + esc(fmtDate(iso, true) + ', ' + list.map(function (x) { return x.name || 'Session'; }).join(' and ')) + '">' +
+          num + '<span class="cal-s">' + esc(abbr(s.name)) + (list.length > 1 ? '+' : '') + '</span></button>';
+      } else html += '<span class="' + cls + '">' + num + '<span class="cal-s"></span></span>';
+    }
+    html += '</div>';
+  }
+  return html + '</div>';
+}
+function renderHistory() {
+  var el = $('#v-history'), ss = sorted().reverse(), today = todayISO(), bests = bestsBySession(), bwBy = {};
+  (S.meta.bw || []).forEach(function (b) { bwBy[b.d] = b.w; });
+  var c7 = 0, c28 = 0, d7 = addDays(today, -6), d28 = addDays(today, -27);
+  ss.forEach(function (s) { if (s.date <= today && s.date >= d7) c7++; if (s.date <= today && s.date >= d28) c28++; });
+  var ids = {}; Object.keys(BASE.entries).forEach(function (id) { ids[id] = 1; }); ss.forEach(function (s) { s.entries.forEach(function (e) { ids[e.ex] = 1; }); });
+  var names = Object.keys(ids).sort(function (a, b) { return exInfo(a).n < exInfo(b).n ? -1 : 1; });
+  if (histFilter && !ids[histFilter]) histFilter = '';
+  var html = '<h2 class="h-sec">Last six weeks</h2><div class="card">' + calendarHTML() +
+    '<p class="small muted">' + (ss.length ? 'Tap a filled day to open that session.' : 'Days you train fill in here.') + '</p></div>' +
+    '<h2 class="h-sec">Sessions</h2><p class="sub">' + (ss.length ? ss.length + (ss.length === 1 ? ' session' : ' sessions') + ' logged: ' + c7 + ' in the last 7 days, ' + c28 + ' in the last 4 weeks.' : 'Nothing logged yet. Finish a session on the Today tab and it appears here.') + '</p>' +
+    '<label class="add-ex small muted" for="hist-ex">Show<select id="hist-ex" class="field"><option value="">Every session</option>' +
+      names.map(function (id) { return '<option value="' + id + '"' + (id === histFilter ? ' selected' : '') + '>' + esc(exInfo(id).n) + ' only</option>'; }).join('') + '</select></label>';
+  if (histFilter) {
+    var rows = [];
+    ss.forEach(function (s) { s.entries.forEach(function (e) { if (e.ex === histFilter) rows.push({ date: s.date, sets: e.sets, tag: s.deload ? 'deload' : (bests[s.id] && bests[s.id][e.ex] ? 'best' : '') }); }); });
+    if (BASE.entries[histFilter]) rows.push({ date: BASE.date, sets: BASE.entries[histFilter], text: BASE.text[histFilter], tag: 'start' });
+    html += '<div class="card scroll-x"><table class="data"><thead><tr><th>Date</th><th>Sets (lb × reps)</th><th>Est. max</th></tr></thead><tbody>' + rows.map(function (r) {
+      return '<tr><td>' + fmtDate(r.date) + (r.tag ? ' <span class="chip' + (r.tag === 'best' ? ' up' : '') + '">' + (r.tag === 'best' ? 'New best' : r.tag === 'start' ? 'Start' : 'Deload') + '</span>' : '') + '</td><td>' + esc(r.text || fmtSets(r.sets)) + '</td><td>' + Math.round(bestOfSets(r.sets)) + ' lb</td></tr>';
+    }).join('') + '</tbody></table></div>';
+  } else {
+    html += '<div class="hist">' + ss.map(function (s) {
+      var n = s.entries.reduce(function (a, e) { return a + e.sets.length; }, 0), nb = bests[s.id] ? Object.keys(bests[s.id]).length : 0;
+      return '<details id="h-' + esc(s.id) + '"><summary><span>' + fmtDate(s.date, true) + ' · ' + esc(s.name || 'Session') + (s.deload ? ' (deload)' : '') + '</span><span>' + n + ' sets' + (nb ? ' · ' + nb + (nb === 1 ? ' best' : ' bests') : '') + '</span></summary><dl>' +
+        s.entries.map(function (e) { return '<div><dt>' + esc(exInfo(e.ex).n) + (bests[s.id] && bests[s.id][e.ex] ? ' <span class="chip up">New best</span>' : '') + '</dt><dd>' + esc(fmtSets(e.sets)) + '</dd></div>'; }).join('') +
+        (bwBy[s.date] ? '<div><dt>Bodyweight</dt><dd>' + bwBy[s.date] + ' lb</dd></div>' : '') +
+        (s.note ? '<div><dt>Notes</dt><dd>' + esc(s.note) + '</dd></div>' : '') + '</dl>' +
+        '<div class="h-actions"><button type="button" class="btn" data-act="edit" data-id="' + esc(s.id) + '">Edit</button><button type="button" class="btn danger" data-act="del" data-id="' + esc(s.id) + '">Delete session</button></div></details>';
+    }).join('') +
+    '<details><summary><span>' + fmtDate(BASE.date, true) + ' · Starting numbers</span><span>baseline</span></summary><dl>' +
+      Object.keys(BASE.entries).map(function (id) { return '<div><dt>' + esc(EX[id].n) + '</dt><dd>' + esc(BASE.text[id] || fmtSets(BASE.entries[id])) + '</dd></div>'; }).join('') + '</dl></details></div>';
+  }
+  el.innerHTML = html;
+}
+function historyClick(e) {
+  var b = e.target.closest ? e.target.closest('[data-act]') : null; if (!b) return;
+  var act = b.dataset.act;
+  if (act === 'cal') {
+    if (histFilter) { histFilter = ''; renderHistory(); }
+    var d = document.getElementById('h-' + b.dataset.id);
+    if (d) { d.open = true; if (d.scrollIntoView) d.scrollIntoView({ block: 'center' }); }
+    return;
+  }
+  if (act === 'edit') { startEdit(b.dataset.id); return; }
+  if (act === 'del') { if (!confirmTap(b)) return; deleteSession(b.dataset.id); curSid = null; summary = null; renderAll(); toast('Session deleted.'); }
 }
 
 /* ───────────── Program ───────────── */
@@ -1026,7 +1125,7 @@ function renderProgram() {
     '<dt>Missed</dt><dd>Fall under the range on the first set and the load is recalculated down from what you did.</dd>' +
     '<dt>Stalled</dt><dd>Three sessions at one load with no added reps triggers a 7.5–10% reset so you can build back past the sticking point.</dd>' +
     '<dt>Skipped</dt><dd>An exercise you skip, or a deload session, changes nothing. The next time you do the lift it picks up from your last real session.</dd>' +
-    '<dt>Your call</dt><dd>The weight boxes are editable. Whatever you log becomes the basis for next time, and a saved session can be corrected from History.</dd></dl></div>';
+    '<dt>Your call</dt><dd>The weight boxes are editable. Whatever you log becomes the basis for next time, and a saved session can be corrected on the History tab.</dd></dl></div>';
 
   html += '<h2 class="h-sec">Deload</h2><div class="card"><p class="sub">' + (deload ? 'Deload week is on, through ' + fmtDate(S.meta.deloadUntil, true) + '.' : 'Sessions since the last deload: ' + sinceDeload() + '. The app suggests an easy week after about ' + DELOAD_AFTER + ' sessions. Take it when you feel run down, skip it when you feel good.') + '</p>' +
     '<div class="row-btns"><button type="button" class="btn" data-act="' + (deload ? 'deload-end' : 'deload-start') + '">' + (deload ? 'End deload' : 'Start a deload week') + '</button></div></div>';
@@ -1160,7 +1259,7 @@ function dataClick(e) {
 }
 
 /* ───────────── Shell ───────────── */
-var TABS = ['today', 'progress', 'program', 'data'];
+var TABS = ['today', 'history', 'progress', 'program', 'data'];
 function showTab() {
   var t = (location.hash || '').replace('#', ''); if (TABS.indexOf(t) < 0) t = 'today';
   TABS.forEach(function (n) { $('#v-' + n).hidden = n !== t; });
@@ -1169,7 +1268,14 @@ function showTab() {
   if (t === 'data') renderData();
   window.scrollTo(0, 0);
 }
-function renderAll() { renderedDay = todayISO(); renderToday(); renderProgress(); renderProgram(); renderData(); }
+/* If the display font fails to load, the wider fallback could overrun five tabs: shrink the labels until they fit. */
+function fitNav() {
+  var links = [].slice.call(document.querySelectorAll('.nav a')); if (!links.length) return;
+  links.forEach(function (a) { a.style.fontSize = ''; });
+  var size = parseFloat(getComputedStyle(links[0]).fontSize) || 14;
+  while (size > 9 && links.some(function (a) { return a.scrollWidth > a.clientWidth; })) { size -= 0.5; links.forEach(function (a) { a.style.fontSize = size + 'px'; }); }
+}
+function renderAll() { renderedDay = todayISO(); renderToday(); renderHistory(); renderProgress(); renderProgram(); renderData(); }
 /* A page left open overnight (the home-screen app rarely reloads) moves on to the new day's session. */
 function dayCheck() {
   if (todayISO() === renderedDay) return;
@@ -1181,16 +1287,19 @@ function dayCheck() {
 function start() {
   storageOK = storageWorks(); renderWarn();
   loadLocal();
-  renderAll(); showTab();
+  renderAll(); showTab(); fitNav();
+  try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitNav); } catch (e) {}
   var today = $('#v-today');
   today.addEventListener('input', todayInput); today.addEventListener('change', todayInput); today.addEventListener('click', todayClick);
   $('#v-progress').addEventListener('click', progressClick);
+  $('#v-history').addEventListener('click', historyClick);
+  $('#v-history').addEventListener('change', function (e) { if (e.target.id === 'hist-ex') { histFilter = e.target.value; renderHistory(); } });
   $('#v-progress').addEventListener('change', function (e) { if (e.target.id === 'chart-ex') { chartEx = e.target.value; renderProgress(); } });
   $('#v-program').addEventListener('click', todayClick);
   $('#v-data').addEventListener('click', dataClick);
   $('#v-data').addEventListener('change', dataChange);
   window.addEventListener('hashchange', showTab);
-  var rz = null; window.addEventListener('resize', function () { clearTimeout(rz); rz = setTimeout(function () { if (!$('#v-progress').hidden) drawCharts(); }, 150); });
+  var rz = null; window.addEventListener('resize', function () { clearTimeout(rz); rz = setTimeout(function () { fitNav(); if (!$('#v-progress').hidden) drawCharts(); }, 150); });
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') dayCheck(); });
   window.addEventListener('pageshow', dayCheck); window.addEventListener('focus', dayCheck);
   /* The same log open in a second tab: pick up what the other tab saved instead of overwriting it. */
