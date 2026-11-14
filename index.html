@@ -410,7 +410,7 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
-var VERSION = '14 Nov 2026, build 12';
+var VERSION = '14 Nov 2026, build 13';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
 var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
 /* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
@@ -687,10 +687,12 @@ function hasTop(e) { return e.sets.some(function (s) { return s.k === 'top'; });
 function topOf(e) { for (var i = 0; i < e.sets.length; i++) if (e.sets[i].k === 'top') return e.sets[i]; return e.sets[0]; }
 function bestE1(exId, h) { var b = 0; (h || hist(exId)).forEach(function (e) { e.sets.forEach(function (s) { b = Math.max(b, e1rm(s.w, s.r)); }); }); return b; }
 /* The working weight of an entry: the load used for the most sets (the heavier one on a tie). */
-function refW(sets) {
-  var c = {}, best = sets[0].w, bc = 0;
-  sets.forEach(function (s) { c[s.w] = (c[s.w] || 0) + 1; });
-  sets.forEach(function (s) { if (c[s.w] > bc || (c[s.w] === bc && s.w > best)) { bc = c[s.w]; best = s.w; } });
+function refW(sets, lo, hi) {   /* when loads were pyramided and no weight was used most, prefer one whose reps landed inside the range */
+  var c = {}, ok = {}, max = 0, best = null;
+  sets.forEach(function (s) { c[s.w] = (c[s.w] || 0) + 1; if (lo && s.r >= lo && s.r <= hi) ok[s.w] = 1; if (c[s.w] > max) max = c[s.w]; });
+  var tied = Object.keys(c).filter(function (w) { return c[w] === max; }).map(Number);
+  var inside = tied.filter(function (w) { return ok[w]; }), pool = inside.length ? inside : tied;
+  pool.forEach(function (w) { if (best === null || w > best) best = w; });
   return best;
 }
 function repsAt(e, w) { return e.sets.filter(function (s) { return s.w === w; }).map(function (s) { return s.r; }); }
@@ -733,10 +735,10 @@ function plan(exId, n, deload) {
       note = 'Same load. Beat ' + top.r + (top.r === 1 ? ' rep' : ' reps') + ' on the top set.';
     }
   } else {
-    var w0 = refW(last.sets), reps = repsAt(last, w0);
-    var stuck2 = real.length === 3 && real.every(function (e) { return refW(e.sets) === w0; }) && reps[0] <= repsAt(real[0], w0)[0] && avg(reps) <= avg(repsAt(real[0], w0));
+    var w0 = refW(last.sets, lo, hi), reps = repsAt(last, w0);
+    var stuck2 = real.length === 3 && real.every(function (e) { return refW(e.sets, lo, hi) === w0; }) && reps[0] <= repsAt(real[0], w0)[0] && avg(reps) <= avg(repsAt(real[0], w0));
     var allTop = last.sets.every(function (s) { return (s.w === w0 && s.r >= hi) || (s.w > w0 && s.r >= lo); });
-    var pv = h[h.length - 2], pw = pv ? refW(pv.sets) : null, i;
+    var pv = h[h.length - 2], pw = pv ? refW(pv.sets, lo, hi) : null, i;
     var jumped = pv && pw < w0 && reps[0] >= Math.ceil(lo / 2);           /* first session after a load increase */
     var building = pv && pw === w0 && avg(reps) > avg(repsAt(pv, w0));    /* same load, reps coming up */
     if (allTop) {
@@ -772,7 +774,7 @@ function plan(exId, n, deload) {
     for (k = all.length - 1; k >= 0 && !lb.length; k--) lb = all[k].sets.filter(function (s) { return s.k === 'bo' && s.w === bw; });   /* most recent back-offs at this load */
     for (k = 0; k < n - 1; k++) rows.push({ k: 'bo', w: bw, t: lb[k] ? Math.min(ex.bo.range[1], lb[k].r + 1) : (lb.length ? Math.min(ex.bo.range[1], lb[lb.length - 1].r) : ex.bo.range[0]) });
   } else {
-    for (k = 0; k < n; k++) rows.push({ k: 'work', w: w, t: tg[k] || lo });
+    for (k = 0; k < n; k++) rows.push(tg[k] ? { k: 'work', w: w, t: tg[k] } : { k: 'work', w: w, t: lo, tr: lo + '–' + hi });
   }
   return { w: w, rows: rows, status: status, note: note, last: last, est: !last };
 }
@@ -789,7 +791,7 @@ function sinceDeload() { var s = sorted(), c = 0; for (var i = s.length - 1; i >
    One entry sheet per session. It is rebuilt from the plan until you change something;
    after that it is yours and is kept, including across reloads, until you save or clear it. */
 function hasData(d) { for (var k in d.rows) for (var i = 0; i < d.rows[k].length; i++) if (d.rows[k][i].r !== '' || d.rows[k][i].done) return true; return false; }
-function rowsFor(exId, n, deload) { return plan(exId, n, deload).rows.map(function (r) { return { k: r.k, w: String(r.w), r: '', rir: '', t: r.t, done: false }; }); }
+function rowsFor(exId, n, deload) { return plan(exId, n, deload).rows.map(function (r) { var o = { k: r.k, w: String(r.w), r: '', rir: '', t: r.t, done: false }; if (r.tr) o.tr = r.tr; return o; }); }
 function defaultSets(exId) { for (var i = 0; i < ROT.length; i++) for (var j = 0; j < ROT[i].items.length; j++) if (ROT[i].items[j][0] === exId) return ROT[i].items[j][1]; return 3; }
 function buildDraft(sid) {
   var sess = sessById(sid), deload = isDeload(), today = todayISO();
@@ -815,6 +817,7 @@ function fixDraft(d, key) {
     var list = d.rows[id].filter(function (r) { return r && typeof r === 'object'; }).slice(0, 12).map(function (r) {
       var o = { k: r.k === 'top' || r.k === 'bo' ? r.k : 'work', w: r.w == null ? '' : String(r.w), r: r.r == null ? '' : String(r.r), rir: r.rir == null ? '' : String(r.rir), t: Number(r.t) || 0, done: !!r.done };
       if (r.we) o.we = true;
+      if (typeof r.tr === 'string' && /^\d{1,3}–\d{1,3}$/.test(r.tr)) o.tr = r.tr;
       return o;
     });
     if (!list.length) return;
@@ -863,7 +866,7 @@ function setRowHTML(exId, i, row) {
     '<span class="tag ' + t[1] + '">' + t[0] + '</span>' +
     '<input id="w-' + exId + '-' + i + '" data-f="w" type="number" inputmode="decimal" step="any" min="0" value="' + esc(row.w) + '" aria-label="Weight in pounds, set ' + (i + 1) + '">' +
     '<span class="x">×</span>' +
-    '<input id="r-' + exId + '-' + i + '" data-f="r" type="number" inputmode="numeric" step="1" min="0" value="' + esc(row.r) + '"' + (row.t ? ' placeholder="' + row.t + '"' : '') + ' aria-label="Reps, set ' + (i + 1) + '">' +
+    '<input id="r-' + exId + '-' + i + '" data-f="r" type="number" inputmode="numeric" step="1" min="0" value="' + esc(row.r) + '"' + (row.tr || row.t ? ' placeholder="' + (row.tr || row.t) + '"' : '') + ' aria-label="Reps, set ' + (i + 1) + '">' +
     '<select id="rir-' + exId + '-' + i + '" data-f="rir" aria-label="Reps in reserve, set ' + (i + 1) + '">' + rirOpts + '</select>' +
     '<button type="button" class="done" data-act="done" aria-pressed="' + (row.done ? 'true' : 'false') + '" aria-label="Mark set ' + (i + 1) + ' done">✓</button>' +
   '</div>';
@@ -1025,6 +1028,7 @@ function todayClick(e) {
   var exId = card.dataset.card; d = cur(); var rows = d.rows[exId]; if (!rows) return;
   if (act === 'done') {
     var rowEl = b.closest('.set'), r = rows[+rowEl.dataset.i]; if (!r) return;
+    if (!r.done && r.r === '' && r.tr) { var box = $('[data-f="r"]', rowEl); if (box) box.focus(); toast('Enter the reps you got, anywhere from ' + r.tr.replace('–', ' to ') + '.'); return; }
     r.done = !r.done;
     if (r.done && r.r === '' && r.t) { r.r = String(r.t); $('[data-f="r"]', rowEl).value = r.r; }
     rowEl.classList.toggle('is-done', r.done); b.setAttribute('aria-pressed', r.done ? 'true' : 'false');
@@ -1036,7 +1040,7 @@ function todayClick(e) {
     if (rows.length >= 12) { toast('Twelve sets is the most one exercise can hold.'); return; }
     var l = rows[rows.length - 1], ex = EX[exId];
     if (l.k === 'top' && ex && ex.type === 'top') rows.push({ k: 'bo', w: String(rnd(num(l.w) * ex.bo.pct)), r: '', rir: '', t: ex.bo.range[0], done: false });
-    else rows.push({ k: l.k, w: l.w, r: '', rir: '', t: l.t, done: false });
+    else { var nr = { k: l.k, w: l.w, r: '', rir: '', t: l.t, done: false }; if (l.tr) nr.tr = l.tr; rows.push(nr); }
   } else if (act === 'rmset') {
     if (rows.length <= 1) { toast('One set is the minimum. To drop the exercise, use ' + (d.editId ? 'Remove exercise.' : 'Skip today.')); return; }
     rows.pop();
@@ -1172,8 +1176,9 @@ function volumePlanned(withOptional) {
 
 /* ───────────── Bodyweight ───────────── */
 function bwSeries() {   /* starting weight plus everything logged; a logged entry on the same day wins */
-  var by = {}; by[BASE.bw.d] = BASE.bw.w;
-  (S.meta.bw || []).forEach(function (b) { by[b.d] = b.w; });
+  var by = {}, logged = S.meta.bw || [];
+  if (!logged.length) by[BASE.bw.d] = BASE.bw.w;
+  logged.forEach(function (b) { by[b.d] = b.w; });
   return Object.keys(by).sort().map(function (d) { return { d: d, w: by[d] }; });
 }
 function bwInfo() {
