@@ -342,16 +342,16 @@ var ROT = [
     items: [['bench', 4], ['incdb', 3], ['pecdeck', 2], ['latraise', 3], ['ohtri', 3]] },
   { id: 'backA', dow: 2, name: 'Back A', tag: 'Pulldowns and heavy rows, rear delts, biceps',
     items: [['pulldown', 4], ['dbrow', 3], ['reardelt', 3], ['inccurl', 3]] },
-  { id: 'legsA', dow: 3, name: 'Legs A', tag: 'Squat strength day',
-    items: [['squat', 3], ['legcurl', 3], ['legext', 3], ['calf', 3], ['crunch', 3]] },
+  { id: 'legsB', dow: 3, name: 'Legs: Hinge', tag: 'Romanian deadlift day, kept moderate mid-week',
+    items: [['rdl', 3], ['legext', 3], ['legcurl', 3], ['calf', 3], ['crunch', 3]] },
   { id: 'arms', dow: 4, opt: true, name: 'Biceps & Delts', tag: 'Optional and short. No triceps work, so Friday\'s bench stays fresh. Or take the rest day',
     items: [['dbcurl', 3], ['latraise', 4]] },
   { id: 'chestB', dow: 5, name: 'Chest B', tag: 'Second bench day for volume, then incline and triceps',
     items: [['benchvol', 4], ['incbb', 3], ['pecdeck', 2], ['latraise', 2], ['skull', 4], ['pushdown', 2]] },
   { id: 'backB', dow: 6, name: 'Back B', tag: 'Two rows and lats, then the big biceps day',
     items: [['dbrow', 3], ['cablerow', 3], ['pulldown', 3], ['reardelt', 2], ['preacher', 3], ['dbcurl', 3], ['hammer', 3]] },
-  { id: 'legsB', dow: 0, name: 'Legs B', tag: 'Hinge day',
-    items: [['rdl', 3], ['legext', 3], ['legcurl', 3], ['calf', 3], ['crunch', 3]] }
+  { id: 'legsA', dow: 0, name: 'Legs: Squat', tag: 'Your main leg session, on the day you are most recovered',
+    items: [['squat', 3], ['legcurl', 3], ['legext', 3], ['calf', 3], ['crunch', 3]] }
 ];
 
 /* Numbers from the Notes screenshot of 12 Nov 2026. They seed every starting load. */
@@ -410,7 +410,7 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
-var VERSION = '14 Nov 2026, build 11';
+var VERSION = '14 Nov 2026, build 12';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
 var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
 /* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
@@ -1434,7 +1434,7 @@ function renderProgram() {
   html += '<h2 class="h-sec">Why it is built this way</h2><div class="prose">' +
     '<h3>Volume: 13–20 weekly sets for the upper body</h3><p>Muscle growth rises with weekly sets per muscle, with diminishing returns. Ten or more sets a week beat fewer in the Schoenfeld 2017 meta-analysis [1], 12–20 is the range Baz-Valle 2022 suggests for trained lifters [2], and the Pelland 2026 meta-regression shows growth still climbing with volume, more slowly each step [3]. Chest and back each get about 18 sets a week. Triceps get about 16 every week. Biceps get about 20 from the six main days, most of it on Saturday, and about 23 with the optional Thursday.</p>' +
     '<h3>Legs get enough to stay strong and no more</h3><p>Around 9 hard sets a week for quads and hamstrings, across two short leg days. Size and strength are far cheaper to keep than to build: Bickel 2011 held muscle size on roughly a third of the original volume [4]. That frees recovery for the upper body, and it suits a hip that is still coming back.</p>' +
-    '<h3>Each muscle twice a week</h3><p>Your split already trains everything twice a week, which is what the frequency research supports: once weekly volume is matched, extra frequency adds little, and twice is the simplest way to fit 16 quality sets [5]. Biceps and side delts get a third exposure on the optional Thursday, which is kept free of triceps work so the Friday bench starts fresh. Monday and Wednesday carry the heavy bench and squat because that is when you are freshest for each.</p>' +
+    '<h3>Each muscle twice a week</h3><p>Your split already trains everything twice a week, which is what the frequency research supports: once weekly volume is matched, extra frequency adds little, and twice is the simplest way to fit 16 quality sets [5]. Biceps and side delts get a third exposure on the optional Thursday, which is kept free of triceps work so the Friday bench starts fresh. The heavy squat sits on Sunday, after your day off, because that is when you are most recovered for it, and the heavy bench on Monday.</p>' +
     '<h3>The road to a 315 bench</h3><p>Three things move a one-rep max: lifting heavy, lifting the same lift often, and carrying more muscle. Maximal strength responds best to heavy loading [6], and coaches of competitive powerlifters put the useful minimum at 3–6 sets a week of 1–5 reps above 80% of max, per lift [17]. Monday gives you four such sets: the top set at about 88% and three back-offs at about 82%. Training a lift more often has a clear positive effect on strength [3], so the bench appears again on Friday for four sets of 5–7 at about 78%. Strength does not need sets taken to failure [7], so every bench set leaves reps in reserve and the work stays repeatable. Load goes up by what you actually did, not by a fixed calendar, because adjusting to performance beat fixed loading for maximal strength in a meta-analysis of athletes [16]. The chest and triceps volume around it is there because a bigger muscle has a higher ceiling. Bodyweight matters too: your 285 came at about 180 lb, so log your weight and let it drift up slowly.</p>' +
     '<h3>Heavy top sets for strength, moderate reps for size</h3><p>Growth is similar across a wide span of loads when sets are hard, but maximal strength responds best to heavy loading [6]. So bench and squat open with a top set of 3–5, and everything else lives between 6 and 20 reps.</p>' +
     '<h3>Close to failure, not always to failure</h3><p>Growth improves as sets end nearer to failure, while strength gains do not depend on it [7][8]. Big barbell lifts stop 1–2 reps short, where fatigue is costly. Machines, cables and curls go to 0–1.</p>' +
