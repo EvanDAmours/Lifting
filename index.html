@@ -65,6 +65,14 @@ h1, h2, h3, p { margin: 0; }
 .top-in, .wrap, .nav-in { max-width: 640px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .top-in { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 10px; }
 .brand { font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1; }
+.sync { font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
+.sync.ok { background: var(--good-soft); color: var(--good); }
+.sync.warn { background: var(--warn-soft); color: var(--warn); }
+.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; color: var(--ink-2); font-size: 0.92rem; }
+.steps a, .prose a { color: var(--accent); }
+.sync-form { display: flex; flex-direction: column; gap: 10px; }
+.sync-form label { display: flex; flex-direction: column; gap: 4px; }
+.sync-form input { color: var(--ink); font-size: 16px; height: 46px; }
 .brand small { display: block; font-family: var(--font-body); font-weight: 500; font-size: 0.72rem; letter-spacing: 0.02em; text-transform: none; color: var(--ink-3); margin-top: 3px; }
 
 .wrap { padding-block: 16px 150px; }
@@ -247,6 +255,7 @@ textarea.io { width: 100%; min-height: 120px; border: 1px solid var(--line); bor
 <header class="top">
   <div class="top-in">
     <div class="brand">Lift Ledger<small>Powerbuilding, upper-body bias</small></div>
+    <span class="sync" id="syncpill" role="status" hidden></span>
   </div>
 </header>
 
@@ -401,7 +410,7 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
-var VERSION = '14 Nov 2026, build 10';
+var VERSION = '14 Nov 2026, build 11';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
 var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
 /* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
@@ -410,7 +419,7 @@ var RETIRED = {
   dbpress: { n: 'Seated Dumbbell Shoulder Press', m: { shoulders: 1, triceps: 0.5 } }
 };
 function exInfo(id) { return EX[id] || RETIRED[id] || { n: id, m: {} }; }
-function defMeta() { return { deloadUntil: '', snooze: 0, bw: [], lastBackup: '', updatedAt: 0 }; }
+function defMeta() { return { deloadUntil: '', snooze: 0, bw: [], lastBackup: '', updatedAt: 0, resetAt: 0, deleted: {} }; }
 var S = { meta: defMeta(), sessions: [] };
 var drafts = {};
 var curSid = null, summary = null, chartEx = 'bench', storageOK = true, renderedDay = '';
@@ -443,18 +452,25 @@ function cleanSession(s) {
     if (sets.length) entries.push({ ex: e.ex, sets: sets });
   });
   if (!entries.length) return null;
-  return { id: s.id, t: Number(s.t) || 0, date: s.date, sid: typeof s.sid === 'string' ? s.sid.slice(0, 40) : '', name: typeof s.name === 'string' ? s.name.slice(0, 60) : '', deload: !!s.deload, entries: entries, note: typeof s.note === 'string' ? s.note.slice(0, 2000) : '' };
+  var out = { id: s.id, t: Number(s.t) || 0, date: s.date, sid: typeof s.sid === 'string' ? s.sid.slice(0, 40) : '', name: typeof s.name === 'string' ? s.name.slice(0, 60) : '', deload: !!s.deload, entries: entries, note: typeof s.note === 'string' ? s.note.slice(0, 2000) : '' };
+  if (Number(s.u) > 0) out.u = Number(s.u);   /* when it was last edited */
+  return out;
 }
 function cleanBW(list) {
   var by = {};
-  (Array.isArray(list) ? list : []).forEach(function (b) { if (b && typeof b.d === 'string' && ISO.test(b.d) && Number(b.w) > 0 && Number(b.w) < 1500) by[b.d] = Math.round(Number(b.w) * 10) / 10; });
-  return Object.keys(by).sort().map(function (d) { return { d: d, w: by[d] }; });
+  (Array.isArray(list) ? list : []).forEach(function (b) {
+    if (!b || typeof b.d !== 'string' || !ISO.test(b.d) || !(Number(b.w) > 0 && Number(b.w) < 1500)) return;
+    var o = { d: b.d, w: Math.round(Number(b.w) * 10) / 10 }; if (Number(b.t) > 0) o.t = Number(b.t);
+    by[b.d] = o;
+  });
+  return Object.keys(by).sort().map(function (d) { return by[d]; });
 }
 function cleanMeta(m) {
   var o = defMeta(); if (!m || typeof m !== 'object') return o;
   if (typeof m.deloadUntil === 'string' && ISO.test(m.deloadUntil)) o.deloadUntil = m.deloadUntil;
   if (typeof m.lastBackup === 'string' && ISO.test(m.lastBackup)) o.lastBackup = m.lastBackup;
-  o.snooze = Number(m.snooze) || 0; o.updatedAt = Number(m.updatedAt) || 0; o.bw = cleanBW(m.bw);
+  o.snooze = Number(m.snooze) || 0; o.updatedAt = Number(m.updatedAt) || 0; o.bw = cleanBW(m.bw); o.resetAt = Number(m.resetAt) || 0;
+  if (m.deleted && typeof m.deleted === 'object' && !Array.isArray(m.deleted)) Object.keys(m.deleted).forEach(function (k) { if (IDRE.test(k) && Number(m.deleted[k]) > 0) o.deleted[k] = Number(m.deleted[k]); });
   return o;
 }
 function cleanSessions(list) {
@@ -475,13 +491,177 @@ function loadLocal() {
   if (dr && typeof dr === 'object' && !Array.isArray(dr)) Object.keys(dr).forEach(function (k) { var f = fixDraft(dr[k], k); if (f) drafts[k] = f; });
   if (drafts.__edit && !S.sessions.some(function (s) { return s.id === drafts.__edit.editId; })) delete drafts.__edit;
 }
-function saveLocal() { setStorageOK(lsWrite(LS_KEY, JSON.stringify(S))); }
+function saveLocal() { setStorageOK(lsWrite(LS_KEY, JSON.stringify(S))); syncSoon(); }
 function saveDrafts() { lsWrite(DRAFT_KEY, JSON.stringify(drafts)); }
 function saveMeta() { S.meta.updatedAt = Date.now(); saveLocal(); }
 function deleteSession(id) {
   S.sessions = S.sessions.filter(function (s) { return s.id !== id; });
+  S.meta.deleted[id] = Date.now();   /* so the deletion reaches your other devices */
   if (drafts.__edit && drafts.__edit.editId === id) { delete drafts.__edit; saveDrafts(); }
   gen++; saveMeta();
+}
+
+/* ───────────── Sync across devices (optional) ─────────────
+   The whole log is one JSON file in a private GitHub repo of yours. Every device keeps its own
+   copy, and a sync merges the two: sessions are matched by id, the newer edit wins, deletions
+   and "start over" carry across. Nothing is ever replaced wholesale, so no device can wipe another. */
+var SYNC_KEY = 'liftledger.sync.v1', SYNC_FILE = 'lift-ledger.json', GH_API = 'https://api.github.com';
+var sync = { cfg: null, busy: false, again: false, timer: null, state: 'off', msg: '', at: 0, p: null };
+function loadSyncCfg() {
+  var c = parse(lsRead(SYNC_KEY) || '');
+  sync.cfg = (c && typeof c.repo === 'string' && /^[\w.-]+\/[\w.-]+$/.test(c.repo) && typeof c.token === 'string' && c.token.length > 10) ? { repo: c.repo, token: c.token } : null;
+  if (!sync.cfg) { sync.state = 'off'; sync.msg = ''; } else if (sync.state === 'off') sync.state = 'idle';
+}
+function gh(cfg, path, method, body) {
+  var h = { 'Authorization': 'Bearer ' + cfg.token, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
+  if (body) h['Content-Type'] = 'application/json';
+  return fetch(GH_API + path, { method: method || 'GET', headers: h, body: body ? JSON.stringify(body) : undefined, cache: 'no-store' });
+}
+function b64enc(str) { var b = new TextEncoder().encode(str), s = '', i; for (i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); }
+function b64dec(b64) { var s = atob(String(b64).replace(/\s/g, '')), b = new Uint8Array(s.length), i; for (i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return new TextDecoder().decode(b); }
+function sStamp(s) { return s.u || s.t || 0; }
+function mergeStates(a, b) {   /* a = this device, b = the other copy; ties go to this device */
+  var am = a.meta, bm = b.meta, newer = (bm.updatedAt || 0) > (am.updatedAt || 0) ? bm : am, m = defMeta(), k;
+  m.deloadUntil = newer.deloadUntil; m.snooze = newer.snooze; m.lastBackup = newer.lastBackup;
+  m.updatedAt = Math.max(am.updatedAt || 0, bm.updatedAt || 0); m.resetAt = Math.max(am.resetAt || 0, bm.resetAt || 0);
+  m.deleted = {};
+  [am.deleted || {}, bm.deleted || {}].forEach(function (d) { for (k in d) if (d[k] > m.resetAt) m.deleted[k] = Math.max(m.deleted[k] || 0, d[k]); });
+  var by = {};
+  b.sessions.forEach(function (s) { by[s.id] = s; });
+  a.sessions.forEach(function (s) { if (!by[s.id] || sStamp(s) >= sStamp(by[s.id])) by[s.id] = s; });
+  var sessions = Object.keys(by).map(function (id) { return by[id]; }).filter(function (s) { return !(m.resetAt && sStamp(s) <= m.resetAt) && !(m.deleted[s.id] >= sStamp(s)); });
+  var bw = {};
+  (bm.bw || []).forEach(function (x) { bw[x.d] = x; });
+  (am.bw || []).forEach(function (x) { if (!bw[x.d] || (x.t || 0) >= (bw[x.d].t || 0)) bw[x.d] = x; });
+  m.bw = Object.keys(bw).sort().map(function (d) { return bw[d]; }).filter(function (x) { return !m.resetAt || (x.t || 0) > m.resetAt; });
+  return { meta: m, sessions: sessions };
+}
+function canon(st) {   /* one fixed text form of a log, so two copies can be compared */
+  var del = {}; Object.keys(st.meta.deleted || {}).sort().forEach(function (k) { del[k] = st.meta.deleted[k]; });
+  var m = st.meta;
+  return JSON.stringify({ meta: { deloadUntil: m.deloadUntil || '', snooze: m.snooze || 0, lastBackup: m.lastBackup || '', updatedAt: m.updatedAt || 0, resetAt: m.resetAt || 0, deleted: del,
+      bw: (m.bw || []).slice().sort(function (x, y) { return x.d < y.d ? -1 : 1; }).map(function (x) { return [x.d, x.w, x.t || 0]; }) },
+    sessions: st.sessions.slice().sort(function (x, y) { return x.id < y.id ? -1 : 1; }) });
+}
+function syncErr(code, msg) { return { sync: true, code: code, msg: msg }; }
+function httpErr(r) {
+  if (r.status === 401) return syncErr('auth', 'GitHub rejected the token. It may have expired. Make a new one and connect again.');
+  if (r.status === 403 || r.status === 404) return syncErr('access', 'That token cannot reach the repo. Check the repo name and that the token has Contents read and write for it.');
+  if (r.status === 429) return syncErr('rate', 'GitHub is rate-limiting requests. It will retry later.');
+  return syncErr('http', 'GitHub answered with an error (' + r.status + '). It will retry later.');
+}
+function readRemote(cfg) {
+  return gh(cfg, '/repos/' + cfg.repo + '/contents/' + SYNC_FILE).then(function (r) {
+    if (r.status === 404) return { sha: null, text: null };   /* no file yet, or an empty repo */
+    if (!r.ok) throw httpErr(r);
+    return r.json().then(function (j) {
+      if (j && j.content) return { sha: j.sha, text: b64dec(j.content) };
+      return gh(cfg, '/repos/' + cfg.repo + '/git/blobs/' + j.sha).then(function (r2) { if (!r2.ok) throw httpErr(r2); return r2.json(); }).then(function (bl) { return { sha: j.sha, text: b64dec(bl.content) }; });   /* files over 1 MB */
+    });
+  });
+}
+function writeRemote(cfg, st, sha) {
+  var body = { message: 'Update training log', content: b64enc(JSON.stringify({ app: 'liftledger', v: 3, saved: new Date().toISOString(), meta: st.meta, sessions: st.sessions }, null, 1)) };
+  if (sha) body.sha = sha;
+  return gh(cfg, '/repos/' + cfg.repo + '/contents/' + SYNC_FILE, 'PUT', body).then(function (r) {
+    if (r.status === 409 || r.status === 422) return 'conflict';   /* another device saved in between: read again and merge */
+    if (!r.ok) throw httpErr(r);
+    return 'ok';
+  });
+}
+function setSync(state, msg) {
+  sync.state = state; sync.msg = msg || '';
+  var pill = $('#syncpill');
+  if (pill) {
+    pill.hidden = !sync.cfg;
+    pill.textContent = state === 'busy' ? 'Syncing' : state === 'ok' ? 'Synced' : state === 'error' ? 'Sync problem' : 'Sync on';
+    pill.className = 'sync' + (state === 'ok' ? ' ok' : state === 'error' ? ' warn' : '');
+  }
+  var line = $('#sync-status'); if (line) line.textContent = syncLine();
+}
+function syncLine() {
+  if (!sync.cfg) return '';
+  if (sync.state === 'busy') return 'Syncing with ' + sync.cfg.repo + '.';
+  if (sync.state === 'error') return 'Not synced: ' + sync.msg + ' Your log is safe on this device.';
+  if (sync.state === 'ok') return 'In step with ' + sync.cfg.repo + ', last checked at ' + new Date(sync.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '.';
+  return 'Connected to ' + sync.cfg.repo + '.';
+}
+function runSync() {
+  if (!sync.cfg) return Promise.resolve();
+  if (sync.busy) { sync.again = true; return sync.p; }
+  sync.busy = true; setSync('busy');
+  var cfg = sync.cfg, tries = 0, pulled = false;
+  function attempt() {
+    tries++;
+    return readRemote(cfg).then(function (rem) {
+      var remote = null;
+      if (rem.text != null) {
+        var d = parse(rem.text);
+        if (!d || typeof d !== 'object' || !Array.isArray(d.sessions)) throw syncErr('badfile', 'The file ' + SYNC_FILE + ' in that repo is not a Lift Ledger log, so it was left untouched.');
+        remote = { meta: cleanMeta(d.meta), sessions: cleanSessions(d.sessions) };
+      }
+      var merged = mergeStates(S, remote || { meta: defMeta(), sessions: [] }), cm = canon(merged);
+      if (cm !== canon(S)) { S = merged; setStorageOK(lsWrite(LS_KEY, JSON.stringify(S))); gen++; pulled = true; }
+      if (remote && cm === canon(remote)) return;
+      if (!remote && !merged.sessions.length && !(merged.meta.bw || []).length && !merged.meta.resetAt) return;   /* nothing worth creating a file for */
+      return writeRemote(cfg, merged, rem.sha).then(function (res) {
+        if (res !== 'conflict') return;
+        if (tries < 4) return attempt();
+        throw syncErr('conflict', 'Another device kept saving at the same moment. It will retry.');
+      });
+    });
+  }
+  sync.p = attempt().then(function () {
+    sync.at = Date.now(); sync.busy = false;
+    if (sync.cfg === cfg) setSync('ok');
+  }, function (e) {
+    sync.busy = false;
+    if (sync.cfg === cfg) setSync('error', e && e.sync ? e.msg : 'No connection to GitHub right now. It will retry.');
+  }).then(function () {
+    if (pulled) {   /* something arrived from another device */
+      if (drafts.__edit && !S.sessions.some(function (s) { return s.id === drafts.__edit.editId; })) { delete drafts.__edit; saveDrafts(); }
+      if (!(drafts[curSid] && drafts[curSid].touched)) curSid = null;
+      renderAll();
+    }
+    if (sync.again && sync.cfg) { sync.again = false; return runSync(); }
+    sync.again = false;
+  });
+  return sync.p;
+}
+function syncSoon() { if (!sync.cfg) return; clearTimeout(sync.timer); sync.timer = setTimeout(runSync, 1200); }
+function parseRepo(v) { var m = String(v || '').trim().replace(/\.git$/, '').match(/(?:github\.com[/:])?([\w.-]+)\/([\w.-]+)\/?$/); return m ? m[1] + '/' + m[2] : ''; }
+function connectSync(repoIn, tokenIn) {
+  var repo = parseRepo(repoIn), token = String(tokenIn || '').trim();
+  if (!repo) return Promise.reject(syncErr('input', 'Enter the repo as owner/name, for example yourname/lifting-data.'));
+  if (token.length < 20 || /\s/.test(token)) return Promise.reject(syncErr('input', 'Paste the whole access token. It starts with github_pat_.'));
+  var cfg = { repo: repo, token: token };
+  return gh(cfg, '/repos/' + repo).then(function (r) {
+    if (!r.ok) throw httpErr(r);
+    return r.json();
+  }, function () { throw syncErr('net', 'No connection to GitHub right now. Try again when you have signal.'); }).then(function (j) {
+    if (j && j.private === false) throw syncErr('public', 'That repo is public, so your log would be visible to anyone. Make it private on GitHub, then connect again.');
+    if (j && j.permissions && j.permissions.push === false) throw syncErr('readonly', 'That token can read the repo but not write to it. Give it Contents: Read and write.');
+    if (!lsWrite(SYNC_KEY, JSON.stringify(cfg))) throw syncErr('store', 'This browser would not save the connection.');
+    sync.cfg = cfg; sync.state = 'idle';
+    return runSync();
+  });
+}
+function disconnectSync() { try { localStorage.removeItem(SYNC_KEY); } catch (e) {} clearTimeout(sync.timer); sync.cfg = null; sync.again = false; setSync('off'); }
+function syncHTML() {
+  if (sync.cfg) {
+    return '<h2 class="h-sec">Sync across devices</h2><p class="sub" id="sync-status">' + esc(syncLine()) + '</p>' +
+      '<p class="small muted">Saved sessions, edits, deletions and bodyweight sync automatically after every save and whenever you open the app. A session you are still entering stays on this device until you save it.</p>' +
+      '<div class="row-btns"><button type="button" class="btn primary" data-act="sync-now">Sync now</button><button type="button" class="btn danger" data-act="sync-off">Disconnect this device</button></div>';
+  }
+  return '<h2 class="h-sec">Sync across devices</h2><p class="sub">Keep the same log on your phone, laptop and any new device, using a private GitHub repo that only you can see. One-time setup, about five minutes:</p>' +
+    '<ol class="steps"><li>Create a repo at <a href="https://github.com/new" target="_blank" rel="noopener">github.com/new</a>. Name it <b>lifting-data</b> and choose <b>Private</b>.</li>' +
+    '<li>Create a token at <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a>. Under Repository access pick <b>Only select repositories</b> and choose lifting-data. Under Permissions, set <b>Contents</b> to <b>Read and write</b>. Pick the longest expiry offered.</li>' +
+    '<li>Paste both below and tap Connect. On every other device, open this page and do just this step with the same token.</li></ol>' +
+    '<div class="sync-form"><label class="small muted" for="sync-repo">Repo<input id="sync-repo" class="field" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="yourname/lifting-data"></label>' +
+    '<label class="small muted" for="sync-token">Access token<input id="sync-token" class="field" type="password" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="github_pat_..."></label></div>' +
+    '<p class="small muted" id="sync-error" role="alert"></p>' +
+    '<div class="row-btns"><button type="button" class="btn primary" data-act="sync-connect">Connect</button></div>' +
+    '<p class="small muted">The token is stored only in this browser and is sent only to GitHub. It is never included in backup files.</p>';
 }
 
 /* ───────────── Schedule ───────────── */
@@ -894,7 +1074,7 @@ function finish(btn) {
   if (edit) {
     var s0 = null; S.sessions.forEach(function (x) { if (x.id === d.editId) s0 = x; });
     if (!s0) { delete drafts.__edit; saveDrafts(); renderAll(); toast('That session no longer exists.'); return; }
-    s0.date = d.date; s0.entries = c.entries; s0.note = (d.note || '').slice(0, 2000);
+    s0.date = d.date; s0.entries = c.entries; s0.note = (d.note || '').slice(0, 2000); s0.u = Date.now();
     delete drafts.__edit; saveDrafts(); gen++; saveMeta();
     curSid = null; summary = null; renderAll(); location.hash = '#history'; toast('Session updated.');
     return;
@@ -922,7 +1102,7 @@ function finish(btn) {
   if (!storageOK) toast('Not saved to this device. See the warning at the top.');
 }
 function addBW(date, w, quiet) {
-  S.meta.bw = cleanBW((S.meta.bw || []).filter(function (b) { return b.d !== date; }).concat([{ d: date, w: w }]));
+  S.meta.bw = cleanBW((S.meta.bw || []).filter(function (b) { return b.d !== date; }).concat([{ d: date, w: w, t: Date.now() }]));
   if (!quiet) saveMeta();
 }
 
@@ -1306,13 +1486,13 @@ function summaryText() {
   });
   return out.join('\n');
 }
-function backupJSON() { return JSON.stringify({ app: 'liftledger', v: 2, exported: todayISO(), meta: S.meta, sessions: S.sessions }); }
+function backupJSON() { return JSON.stringify({ app: 'liftledger', v: 3, exported: todayISO(), meta: S.meta, sessions: S.sessions }); }
 function backupLine() { return S.meta.lastBackup ? 'Last backup: ' + fmtDate(S.meta.lastBackup, true) + '.' : (S.sessions.length ? 'You have not made a backup yet.' : 'Nothing to back up yet.'); }
 function markBackup() { S.meta.lastBackup = todayISO(); saveMeta(); var el = $('#last-backup'); if (el) el.textContent = backupLine(); }
 function renderData() {
   var el = $('#v-data'), n = S.sessions.length;
-  el.innerHTML = '<h2 class="h-sec">Where your log lives</h2><p class="sub">' + (storageOK
-      ? 'In this browser, on this device: ' + n + (n === 1 ? ' session' : ' sessions') + ' saved. Nothing is sent anywhere. The home-screen app and the Safari tab keep separate copies, so pick one and stick with it.'
+  el.innerHTML = syncHTML() + '<h2 class="h-sec">Where your log lives</h2><p class="sub">' + (storageOK
+      ? 'In this browser, on this device: ' + n + (n === 1 ? ' session' : ' sessions') + ' saved. ' + (sync.cfg ? 'A copy is kept in your private GitHub repo.' : 'Nothing is sent anywhere.') + ' The home-screen app and the Safari tab keep separate copies, so pick one and stick with it.'
       : 'This browser is refusing to save. Anything you enter is lost when the page closes.') + '</p>' +
     '<h2 class="h-sec">Backup</h2><p class="sub">Because the log lives on this device only, save a backup file every week or two. <span id="last-backup">' + backupLine() + '</span></p>' +
     '<div class="row-btns"><button type="button" class="btn primary" data-act="save-file">Save a backup file</button><button type="button" class="btn" data-act="export">Show backup as text</button></div>' +
@@ -1357,6 +1537,15 @@ function dataChange(e) {
 function dataClick(e) {
   var b = e.target.closest ? e.target.closest('[data-act]') : null; if (!b) return;
   var act = b.dataset.act, io = $('#io');
+  if (act === 'sync-connect') {
+    var errEl = $('#sync-error'); errEl.textContent = 'Checking the repo and token.'; b.disabled = true;
+    connectSync($('#sync-repo').value, $('#sync-token').value).then(function () {
+      renderData(); toast(sync.state === 'error' ? 'Connected, but the first sync failed.' : 'Connected and synced.');
+    }, function (e) { b.disabled = false; errEl.textContent = e && e.sync ? e.msg : 'Could not connect. Try again.'; });
+    return;
+  }
+  if (act === 'sync-now') { runSync().then(function () { toast(sync.state === 'ok' ? 'Synced.' : 'Sync did not finish. See the status above.'); }); return; }
+  if (act === 'sync-off') { if (!confirmTap(b, 'Tap again to disconnect')) return; disconnectSync(); renderData(); toast('Disconnected. Your log stays on this device and in the repo.'); return; }
   if (act === 'copy-summary') { copyText(summaryText()); return; }
   if (act === 'save-file') { if (!S.sessions.length && !(S.meta.bw || []).length) { toast('Nothing to back up yet.'); return; } saveBackupFile(); return; }
   if (act === 'export') { io.value = backupJSON(); markBackup(); toast('Backup text is in the box. Copy it somewhere safe.'); return; }
@@ -1370,15 +1559,16 @@ function dataClick(e) {
     var bw = cleanBW(d.meta && d.meta.bw).filter(function (x) { return !haveBW[x.d]; });
     if (!fresh.length && !bw.length) { toast('Nothing new in that backup. Everything in it is already here.'); return; }
     if (!confirmTap(b, 'Tap again to add ' + fresh.length + (fresh.length === 1 ? ' session' : ' sessions'))) return;
-    fresh.forEach(function (s) { S.sessions.push(s); });
-    S.meta.bw = cleanBW((S.meta.bw || []).concat(bw));
+    var now = Date.now();
+    fresh.forEach(function (s) { s.u = now; delete S.meta.deleted[s.id]; S.sessions.push(s); });   /* restored on purpose, so it outranks an earlier delete or start-over */
+    S.meta.bw = cleanBW((S.meta.bw || []).concat(bw.map(function (x) { return { d: x.d, w: x.w, t: now }; })));
     gen++; saveMeta(); curSid = null; summary = null; renderAll();
     toast('Imported ' + fresh.length + (fresh.length === 1 ? ' session.' : ' sessions.'));
     return;
   }
   if (act === 'reset') {
     if (!confirmTap(b, 'Tap again to delete everything')) return;
-    S = { meta: defMeta(), sessions: [] }; drafts = {};
+    S = { meta: defMeta(), sessions: [] }; drafts = {}; S.meta.resetAt = Date.now();   /* carries the start-over to your other devices */
     gen++; saveMeta(); saveDrafts(); curSid = null; summary = null; renderAll(); toast('All logged data deleted.');
   }
 }
@@ -1411,6 +1601,7 @@ function dayCheck() {
 
 function start() {
   storageOK = storageWorks(); renderWarn();
+  loadSyncCfg();
   loadLocal();
   renderAll(); showTab(); fitNav();
   try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitNav); } catch (e) {}
@@ -1425,10 +1616,13 @@ function start() {
   $('#v-data').addEventListener('change', dataChange);
   window.addEventListener('hashchange', showTab);
   var rz = null; window.addEventListener('resize', function () { clearTimeout(rz); rz = setTimeout(function () { fitNav(); if (!$('#v-progress').hidden) drawCharts(); }, 150); });
-  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') dayCheck(); });
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') { dayCheck(); if (sync.cfg && Date.now() - sync.at > 60000) runSync(); } });
+  window.addEventListener('online', function () { if (sync.cfg) runSync(); });
+  setSync(sync.state); if (sync.cfg) runSync();
   window.addEventListener('pageshow', dayCheck); window.addEventListener('focus', dayCheck);
   /* The same log open in a second tab: pick up what the other tab saved instead of overwriting it. */
   window.addEventListener('storage', function (e) {
+    if (e.key === SYNC_KEY) { loadSyncCfg(); setSync(sync.state); renderData(); return; }
     if (e.key !== null && e.key !== LS_KEY && e.key !== DRAFT_KEY) return;
     loadLocal(); gen++;
     if (!(drafts[curSid] && drafts[curSid].touched)) curSid = null;

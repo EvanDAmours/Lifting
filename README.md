@@ -5,7 +5,7 @@ It opens on today's session, works out the next loads from what was logged, and 
 estimated maxes, weekly hard sets per muscle and bodyweight.
 
 Everything is in `index.html`. No build step and no server: logs are saved in the browser
-on the device, with backup files and restore on the Data tab.
+on the device, with optional sync, backup files and restore on the Data tab.
 
 ## The goal
 
@@ -21,6 +21,14 @@ Friday) and the Progress tab tracks the estimated max against 315 with a project
 - The History tab shows a six-week calendar, every saved session, and a per-exercise log.
   A saved session can be corrected or deleted there.
 - Entries in progress survive a reload and are flagged if left unsaved overnight.
+
+## Syncing across devices
+
+Optional. The Data tab can connect the app to a private GitHub repo, where the whole log is
+kept as `lift-ledger.json`. Each device keeps its own copy and merges on sync: sessions are
+matched by id, the newer edit wins, and deletions carry across. It needs a fine-grained
+access token limited to that repo with Contents read and write; the token is stored only in
+the browser.
 
 ## Putting it online (GitHub Pages)
 
