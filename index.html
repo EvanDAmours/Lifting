@@ -303,6 +303,8 @@ var EX = {
               cue: 'Set the seat so the stretch is deep but comfortable. Safe to take the last set to failure.' },
   pulldown: { n: 'Lat Pulldown', eq: 'machine', type: 'dp', range: [8, 12], inc: 5, rest: 120, rir: '1–2', m: { back: 1, biceps: 0.5 },
               cue: 'Full hang at the top, pull the elbows down to your sides, no swinging.' },
+  pulldownb: { n: 'Lat Pulldown, after rows', eq: 'machine', type: 'dp', range: [8, 12], inc: 5, rest: 120, rir: '1–2', start: 180, m: { back: 1, biceps: 0.5 },
+              cue: 'Saturday\'s pulldown comes after both rows, so it runs lighter than Tuesday\'s fresh pulldown and keeps its own record. Full hang at the top, elbows down to your sides, no swinging.' },
   dbrow:    { n: 'Single-Arm Dumbbell Row', eq: 'db', type: 'dp', range: [8, 12], inc: 5, rest: 120, rir: '1–2', m: { back: 1, biceps: 0.5 },
               cue: 'Let the shoulder blade stretch forward at the bottom, then row to the hip. Log the reps per arm.' },
   cablerow: { n: 'Seated Cable Row, wide grip', eq: 'cable', type: 'dp', range: [8, 15], inc: 20, rest: 120, rir: '1–2', start: 160, m: { back: 1, biceps: 0.5 },
@@ -350,8 +352,8 @@ var ROT = [
     items: [['dbcurl', 3], ['latraise', 4]] },
   { id: 'chestB', dow: 5, name: 'Chest B', tag: 'Second bench day for volume, then incline and triceps',
     items: [['benchvol', 4], ['incbb', 3], ['pecdeck', 2], ['latraise', 2], ['skull', 4], ['pushdown', 2]] },
-  { id: 'backB', dow: 6, name: 'Back B', tag: 'Lats first, two rows, then the big biceps day',
-    items: [['pulldown', 3], ['cablerow', 3], ['dbrow', 3], ['reardelt', 2], ['hammer', 3], ['preacher', 3], ['dbcurlfin', 3]] },
+  { id: 'backB', dow: 6, name: 'Back B', tag: 'Cable row to warm up, heavy dumbbell row second, then lats and the big biceps day',
+    items: [['cablerow', 3], ['dbrow', 3], ['pulldownb', 3], ['reardelt', 2], ['hammer', 3], ['preacher', 3], ['dbcurlfin', 3]] },
   { id: 'legsA', dow: 0, name: 'Legs: Squat', tag: 'Your main leg session, on the day you are most recovered',
     items: [['squat', 3], ['legcurl', 3], ['legext', 3], ['calf', 3], ['crunch', 3]] }
 ];
@@ -412,7 +414,7 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
-var VERSION = '14 Nov 2026, build 15';
+var VERSION = '14 Nov 2026, build 16';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
 var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
 /* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
