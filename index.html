@@ -305,8 +305,8 @@ var EX = {
               cue: 'Full hang at the top, pull the elbows down to your sides, no swinging.' },
   dbrow:    { n: 'Single-Arm Dumbbell Row', eq: 'db', type: 'dp', range: [8, 12], inc: 5, rest: 120, rir: '1–2', m: { back: 1, biceps: 0.5 },
               cue: 'Let the shoulder blade stretch forward at the bottom, then row to the hip. Log the reps per arm.' },
-  cablerow: { n: 'Seated Cable Row, wide grip', eq: 'cable', type: 'dp', range: [8, 12], inc: 5, rest: 120, rir: '1–2', start: 150, m: { back: 1, biceps: 0.5 },
-              cue: 'Wide-grip attachment. Reach forward for a full stretch, pull to the lower ribs, keep the torso still. It also warms you up for the dumbbell row that follows.' },
+  cablerow: { n: 'Seated Cable Row, wide grip', eq: 'cable', type: 'dp', range: [8, 15], inc: 20, rest: 120, rir: '1–2', start: 160, m: { back: 1, biceps: 0.5 },
+              cue: 'Wide-grip attachment, hands at or just outside shoulder width. Reach forward for a full stretch, pull to the lower ribs, keep the torso still. This stack moves in 20 lb steps, so the rep range runs to 15: build reps at one weight until every set reaches 15, then take the next plate.' },
   latraise: { n: 'Lateral Raise', eq: 'db', type: 'dp', range: [12, 20], inc: 5, rest: 75, rir: '0–1', start: 20, m: { shoulders: 1 },
               cue: 'Cable or dumbbell. The rep range is wide on purpose, because the jump to the next weight is large. Take sets close to failure.' },
   reardelt: { n: 'Reverse Pec Deck', eq: 'machine', type: 'dp', range: [12, 20], inc: 5, rest: 60, rir: '0–1', start: 80, m: { shoulders: 1, back: 0.5 },
@@ -412,7 +412,7 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
-var VERSION = '14 Nov 2026, build 14';
+var VERSION = '14 Nov 2026, build 15';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
 var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
 /* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
