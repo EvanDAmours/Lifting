@@ -305,8 +305,8 @@ var EX = {
               cue: 'Full hang at the top, pull the elbows down to your sides, no swinging.' },
   dbrow:    { n: 'Single-Arm Dumbbell Row', eq: 'db', type: 'dp', range: [8, 12], inc: 5, rest: 120, rir: '1–2', m: { back: 1, biceps: 0.5 },
               cue: 'Let the shoulder blade stretch forward at the bottom, then row to the hip. Log the reps per arm.' },
-  cablerow: { n: 'Seated Cable Row', eq: 'cable', type: 'dp', range: [8, 12], inc: 5, rest: 120, rir: '1–2', start: 150, m: { back: 1, biceps: 0.5 },
-              cue: 'Reach forward for a full stretch, pull to the lower ribs, keep the torso still.' },
+  cablerow: { n: 'Seated Cable Row, wide grip', eq: 'cable', type: 'dp', range: [8, 12], inc: 5, rest: 120, rir: '1–2', start: 150, m: { back: 1, biceps: 0.5 },
+              cue: 'Wide-grip attachment. Reach forward for a full stretch, pull to the lower ribs, keep the torso still. It also warms you up for the dumbbell row that follows.' },
   latraise: { n: 'Lateral Raise', eq: 'db', type: 'dp', range: [12, 20], inc: 5, rest: 75, rir: '0–1', start: 20, m: { shoulders: 1 },
               cue: 'Cable or dumbbell. The rep range is wide on purpose, because the jump to the next weight is large. Take sets close to failure.' },
   reardelt: { n: 'Reverse Pec Deck', eq: 'machine', type: 'dp', range: [12, 20], inc: 5, rest: 60, rir: '0–1', start: 80, m: { shoulders: 1, back: 0.5 },
@@ -319,6 +319,8 @@ var EX = {
               cue: 'Elbows pinned to your sides, full lockout.' },
   inccurl:  { n: 'Incline Dumbbell Curl', eq: 'db', type: 'dp', range: [8, 12], inc: 5, rest: 90, rir: '0–1', start: 30, m: { biceps: 1 },
               cue: 'Bench at about 55 degrees with the arms hanging behind the body, so the biceps start from a stretch. No swinging.' },
+  dbcurlfin: { n: 'Dumbbell Curl, finisher', eq: 'db', type: 'dp', range: [8, 12], inc: 5, rest: 60, rir: '0–1', start: 35, m: { biceps: 1 },
+              cue: 'The last curl of Saturday, done with tired biceps, so it runs lighter than your fresh dumbbell curl and keeps its own record. Chase the pump and take sets close to failure.' },
   hammer:   { n: 'Hammer Curl', eq: 'db', type: 'dp', range: [8, 12], inc: 5, rest: 90, rir: '0–1', m: { biceps: 1 },
               cue: 'Neutral grip for the brachialis and forearm. Weight is per arm.' },
   dbcurl:   { n: 'Standing Dumbbell Curl', eq: 'db', type: 'dp', range: [8, 12], inc: 5, rest: 75, rir: '0–1', start: 35, m: { biceps: 1 },
@@ -348,8 +350,8 @@ var ROT = [
     items: [['dbcurl', 3], ['latraise', 4]] },
   { id: 'chestB', dow: 5, name: 'Chest B', tag: 'Second bench day for volume, then incline and triceps',
     items: [['benchvol', 4], ['incbb', 3], ['pecdeck', 2], ['latraise', 2], ['skull', 4], ['pushdown', 2]] },
-  { id: 'backB', dow: 6, name: 'Back B', tag: 'Two rows and lats, then the big biceps day',
-    items: [['dbrow', 3], ['cablerow', 3], ['pulldown', 3], ['reardelt', 2], ['preacher', 3], ['dbcurl', 3], ['hammer', 3]] },
+  { id: 'backB', dow: 6, name: 'Back B', tag: 'Lats first, two rows, then the big biceps day',
+    items: [['pulldown', 3], ['cablerow', 3], ['dbrow', 3], ['reardelt', 2], ['hammer', 3], ['preacher', 3], ['dbcurlfin', 3]] },
   { id: 'legsA', dow: 0, name: 'Legs: Squat', tag: 'Your main leg session, on the day you are most recovered',
     items: [['squat', 3], ['legcurl', 3], ['legext', 3], ['calf', 3], ['crunch', 3]] }
 ];
@@ -410,7 +412,7 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
-var VERSION = '14 Nov 2026, build 13';
+var VERSION = '14 Nov 2026, build 14';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
 var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
 /* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
