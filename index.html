@@ -424,7 +424,7 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
-var VERSION = '16 Nov 2026, build 18';
+var VERSION = '16 Nov 2026, build 19';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
 var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
 /* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
@@ -724,7 +724,7 @@ function plan(exId, n, deload) {
     var top = topOf(last), prev = h[h.length - 2], good = null, q;
     for (q = h.length - 2; q >= Math.max(0, h.length - 4) && !good; q--) if (topOf(h[q]).r >= lo) good = topOf(h[q]);   /* last top set that was inside the range */
     var stuck = real.length === 3 && real.every(function (e) { return topOf(e).w === top.w; }) && top.r <= topOf(real[0]).r;
-    var easy = top.r >= lo && top.rir != null && top.r + top.rir >= hi + 2;   /* reps done plus reps left says the range is already beaten */
+    var easy = top.r >= lo && top.rir != null && top.r + top.rir >= hi + 1;   /* reps done plus reps left says the range is already beaten */
     if (top.r >= hi || easy) {
       var j = (top.r >= hi && top.rir >= 3) ? 2 : 1; w = top.w + ex.inc * j; status = 'up'; tg = [lo];
       note = top.r >= hi ? fmtW(top.w) + ' × ' + top.r + ' reached the top of the range. Add ' + (ex.inc * j) + ' lb.'
@@ -784,7 +784,15 @@ function plan(exId, n, deload) {
     status = 'deload'; note = 'Deload: about half the sets, lighter load, stop at least 4 reps short of failure.';
   } else if (ex.type === 'top') {
     rows.push({ k: 'top', w: w, t: tg[0] || lo });
-    var bw = rnd(w * ex.bo.pct), lb = [], all = hist(exId);
+    /* Back-offs progress on their own: start from the load you last used for them, add a step when every one reaches the top of the range,
+       and never fall below their share of the top set or rise to within one step of it. */
+    var bw = rnd(w * ex.bo.pct), lb = [], all = hist(exId), lastBo = [];
+    for (k = all.length - 1; k >= 0 && !lastBo.length; k--) lastBo = all[k].sets.filter(function (s) { return s.k === 'bo'; });
+    if (lastBo.length && (status === 'up' || status === 'hold')) {   /* after a drop or reset, back-offs drop with the top set */
+      var bw0 = refW(lastBo, ex.bo.range[0], ex.bo.range[1]), atBw0 = lastBo.filter(function (s) { return s.w === bw0; });
+      var cand = atBw0.every(function (s) { return s.r >= ex.bo.range[1]; }) ? bw0 + ex.inc : atBw0[0].r >= ex.bo.range[0] ? bw0 : bw;
+      bw = Math.max(bw, Math.min(cand, w - ex.inc));
+    }
     for (k = all.length - 1; k >= 0 && !lb.length; k--) lb = all[k].sets.filter(function (s) { return s.k === 'bo' && s.w === bw; });   /* most recent back-offs at this load */
     for (k = 0; k < n - 1; k++) rows.push({ k: 'bo', w: bw, t: lb[k] ? Math.min(ex.bo.range[1], lb[k].r + 1) : (lb.length ? Math.min(ex.bo.range[1], lb[lb.length - 1].r) : ex.bo.range[0]) });
   } else {
@@ -1279,7 +1287,7 @@ function goalInfo() {
   GOAL.ids.forEach(function (id) {
     hist(id).forEach(function (e) {
       var b = 0, bl = 0;
-      e.sets.forEach(function (s) { if (s.r <= 10 && e1rm(s.w, s.r) > b) { b = e1rm(s.w, s.r); bl = s.r === 1 ? s.w : s.w * 36 / (37 - s.r); } if (s.w > heaviest) { heaviest = s.w; heavyDate = e.date; } });
+      e.sets.forEach(function (s) { var rr = s.r + Math.min(3, s.rir || 0); if (rr <= 10 && e1rm(s.w, rr) > b) { b = e1rm(s.w, rr); bl = rr === 1 ? s.w : s.w * 36 / (37 - rr); } if (s.w > heaviest) { heaviest = s.w; heavyDate = e.date; } });
       if (b) pts.push({ date: e.date, y: b, low: bl });   /* low = the same set read by the more cautious Brzycki formula */
     });
   });
@@ -1320,7 +1328,7 @@ function goalHTML() {
     '<p class="sub">' + line + '</p>' +
     (g.heaviest < T ? '<p class="small muted">At ' + fmtW(bwInfo().w) + ' lb, ' + T + ' is ' + (T / bwInfo().w).toFixed(2) + ' times your bodyweight. Your ' + GOAL.was + ' came at about 180 lb, which was 1.58 times, so gaining a little weight makes the goal noticeably easier.</p>' : '') +
     (g.cur < T ? '<p class="small muted">What it takes: a top set of ' + w5 + ' × 5 or ' + w3 + ' × 3 puts the estimate at ' + T + '. Monday\'s top set climbs there 5 lb at a time, and Friday\'s volume bench builds the muscle and practice behind it.</p>' : '') +
-    '<p class="small muted">Estimated max is your best bench set of the last four weeks, as weight × (1 + reps ÷ 30)' + (Math.round(g.low) < Math.round(g.cur) ? '. Treat it as a guide: a more cautious formula reads the same set as ' + Math.round(g.low) + ', while a set that left reps in reserve understates you. Only a real single settles it.' : '.') + '</p></div>';
+    '<p class="small muted">Estimated max is your best bench set of the last four weeks, as weight × (1 + reps ÷ 30), counting the reps you logged as left in reserve (up to 3)' + (Math.round(g.low) < Math.round(g.cur) ? '. Treat it as a guide: a more cautious formula reads the same set as ' + Math.round(g.low) + ', while a set that left reps in reserve understates you. Only a real single settles it.' : '.') + '</p></div>';
 }
 
 /* ───────────── Progress ───────────── */
@@ -1485,7 +1493,7 @@ function renderProgram() {
   html += '<h2 class="h-sec">How the loads move</h2><div class="card"><dl class="rule">' +
     '<dt>Add reps</dt><dd>Keep the load and beat last time by a rep, staying inside the rep range.</dd>' +
     '<dt>Add load</dt><dd>When every set reaches the top of the range, the load goes up 5 lb (10 lb on RDL and calves) and reps restart at the low end.</dd>' +
-    '<dt>Top sets</dt><dd>Bench and squat open with one heavy set of 3–5. Log 5 and it goes up 5 lb. Log 4 or 5 with plenty in reserve and it also goes up, 10 lb if it was very easy. Back-off sets follow the top set automatically.</dd>' +
+    '<dt>Top sets</dt><dd>Bench and squat open with one heavy set of 3–5. Log 5, or reps plus reps in reserve of 6 or more, and it goes up 5 lb (10 lb if it was very easy). Back-off sets have their own load: they start from what you last used, go up a step when every one reaches the top of their range, and never drop below their share of the top set.</dd>' +
     '<dt>Missed</dt><dd>One rep short on a top set, once, repeats the load. A second miss, or a bigger miss, sets the load from your best recent top set. A heavy single is handled the same way, so testing a max never breaks the plan.</dd>' +
     '<dt>Stalled</dt><dd>Three sessions at one load with no added reps triggers a step back, 5% on top sets and 10% on other lifts, so you can build past the sticking point.</dd>' +
     '<dt>After a jump</dt><dd>On small lifts the next dumbbell can be a big step. Landing a little under the rep range right after a jump keeps the new load and builds reps from there.</dd>' +
