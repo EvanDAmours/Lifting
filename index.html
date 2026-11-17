@@ -297,11 +297,11 @@ textarea.io { width: 100%; min-height: 120px; border: 1px solid var(--line); bor
    type 'dp'  = straight sets, double progression (add reps, then load).
    m = muscles trained; 1 is a direct set, 0.5 an indirect one (fractional counting). */
 var EX = {
-  bench:    { n: 'Barbell Bench Press', eq: 'barbell', type: 'top', range: [3, 5], bo: { pct: 0.925, range: [3, 5] }, inc: 5, rest: 180, rir: '1–2', m: { chest: 1, triceps: 0.5, shoulders: 0.5 },
+  bench:    { n: 'Barbell Bench Press', eq: 'barbell', type: 'top', range: [3, 5], bo: { pct: 0.925, e1: 0.82, range: [3, 5] }, inc: 5, rest: 180, rir: '1–2', m: { chest: 1, triceps: 0.5, shoulders: 0.5 },
               cue: 'The lift the 315 goal runs on. One heavy top set, stopped 1–2 reps short of failure, then three back-off sets of 3–5 at about 92.5% of it, which should feel fast and leave 2–3 in reserve. Rest a full 3 minutes. Bench inside a rack with the safety arms set just below chest height, or use a spotter. To test a max, work up in singles and log the best one as the top set: the app recalculates from it.' },
   benchvol: { n: 'Bench Press, volume day', eq: 'barbell', type: 'dp', range: [5, 7], inc: 5, rest: 180, rir: '2', start: 205, m: { chest: 1, triceps: 0.5, shoulders: 0.5 },
               cue: 'The second bench day of the week. Same grip and bar path as Monday, four crisp sets of 5–7 with 2 reps left in each. This day is for practice and muscle, so no grinding. Set the safety arms here too. When all four sets reach 7, the load goes up.' },
-  squat:    { n: 'High-Bar Back Squat', eq: 'barbell', type: 'top', range: [3, 5], bo: { pct: 0.85, range: [5, 7] }, inc: 5, rest: 180, rir: '2', m: { quads: 1, glutes: 0.5 },
+  squat:    { n: 'High-Bar Back Squat', eq: 'barbell', type: 'top', range: [3, 5], bo: { pct: 0.85, e1: 0.75, range: [5, 7] }, inc: 5, rest: 180, rir: '2', m: { quads: 1, glutes: 0.5 },
               cue: 'Coming back from the hip injury: keep the depth and tempo pain-free and leave 2 reps in reserve. If the hip complains, repeat the load next time instead of adding. Load only goes up once you log 5 clean reps.' },
   incbb:    { n: 'Incline Barbell Press', eq: 'barbell', type: 'dp', range: [6, 10], inc: 5, rest: 150, rir: '1–2', m: { chest: 1, triceps: 0.5, shoulders: 0.5 },
               cue: 'Lower under control to the upper chest. When all 3 sets reach 10 reps, the load goes up.' },
@@ -424,7 +424,7 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
-var VERSION = '16 Nov 2026, build 20';
+var VERSION = '17 Nov 2026, build 21';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
 var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
 /* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
@@ -1045,6 +1045,23 @@ function renderToday() {
     (edit ? '' : '<button type="button" class="btn" data-act="clear-draft">Clear everything entered for this session</button>') + '</div>';
   el.innerHTML = html;
 }
+/* Back-off sets follow today's top set. Before it is done they sit at a share of its weight; once its reps are in, they are set from
+   the max that set implies (reps plus reps in reserve, up to 3), so a strong day lifts them and a weak day lowers them.
+   Rows you have already changed, filled in or ticked are left alone. */
+function boFromTop(d, exId) {
+  var ex = EX[exId], rows = d.rows[exId]; if (!ex || ex.type !== 'top' || !rows || d.editId || d.deload) return;
+  var top = rows[0]; if (!top || top.k !== 'top') return;
+  var w = num(top.w), reps = Math.round(num(top.r)); if (!(w > 0)) return;
+  var bo, why = '';
+  if (reps >= 1) {
+    var rr = reps + Math.min(3, top.rir === '' ? 0 : num(top.rir)), est = e1rm(w, rr);
+    bo = Math.max(5, Math.min(rnd(est * ex.bo.e1), w - ex.inc));
+    why = 'Back-offs set to ' + fmtW(bo) + ' from your top set (' + fmtW(w) + ' × ' + reps + (rr > reps ? ', ' + (rr - reps) + ' in reserve' : '') + ').';
+  } else bo = rnd(w * ex.bo.pct);
+  var changed = false;
+  rows.forEach(function (x, i) { if (x.k === 'bo' && !x.we && x.r === '' && !x.done && x.w !== String(bo)) { x.w = String(bo); changed = true; var inp = $('#w-' + exId + '-' + i); if (inp) inp.value = x.w; } });
+  if (changed) { if (why) toast(why); var card = $('[data-card="' + exId + '"]'), m = card && $('.ex-meta', card); if (m) m.outerHTML = metaHTML(exId, d, plan(exId, d.n[exId] || rows.length, d.deload)); }
+}
 function todayInput(e) {
   var t = e.target; if (!t || !t.id && !(t.dataset && t.dataset.f)) return;
   var d = cur();
@@ -1062,14 +1079,12 @@ function todayInput(e) {
   var rowEl = t.closest ? t.closest('.set') : null; if (!rowEl || !t.dataset.f) return;
   var exId = rowEl.dataset.ex, rows = d.rows[exId], r = rows && rows[+rowEl.dataset.i]; if (!r) return;
   r[t.dataset.f] = t.value;
+  if (r.k === 'top' && e.type === 'change' && (t.dataset.f === 'r' || t.dataset.f === 'rir')) boFromTop(d, exId);
   if (t.dataset.f === 'w') {
     r.we = true;
     if (e.type === 'change') {
       var ex = EX[exId];
-      if (r.k === 'top' && ex && ex.type === 'top' && !d.editId && !d.deload && num(t.value) > 0) {
-        var bo = String(rnd(num(t.value) * ex.bo.pct));   /* back-off sets follow the top set unless you have already changed or done them */
-        rows.forEach(function (x, i) { if (x.k === 'bo' && !x.we && x.r === '' && !x.done) { x.w = bo; var inp = $('#w-' + exId + '-' + i); if (inp) inp.value = bo; } });
-      }
+      if (r.k === 'top') boFromTop(d, exId);
       var card = rowEl.closest('[data-card]'), m = card && $('.ex-meta', card);
       if (m) m.outerHTML = metaHTML(exId, d, (!d.editId && EX[exId]) ? plan(exId, d.n[exId] || rows.length, d.deload) : null);
     }
@@ -1097,7 +1112,7 @@ function todayClick(e) {
     var rowEl = b.closest('.set'), r = rows[+rowEl.dataset.i]; if (!r) return;
     if (!r.done && r.r === '' && r.tr) { var box = $('[data-f="r"]', rowEl); if (box) box.focus(); toast('Enter the reps you got, anywhere from ' + r.tr.replace('–', ' to ') + '.'); return; }
     r.done = !r.done;
-    if (r.done && r.r === '' && r.t) { r.r = String(r.t); $('[data-f="r"]', rowEl).value = r.r; }
+    if (r.done && r.r === '' && r.t) { r.r = String(r.t); $('[data-f="r"]', rowEl).value = r.r; if (r.k === 'top') boFromTop(d, exId); }
     rowEl.classList.toggle('is-done', r.done); b.setAttribute('aria-pressed', r.done ? 'true' : 'false');
     touch(d);
     return;
@@ -1493,7 +1508,7 @@ function renderProgram() {
   html += '<h2 class="h-sec">How the loads move</h2><div class="card"><dl class="rule">' +
     '<dt>Add reps</dt><dd>Keep the load and beat last time by a rep, staying inside the rep range.</dd>' +
     '<dt>Add load</dt><dd>When every set reaches the top of the range, the load goes up 5 lb (10 lb on RDL and calves) and reps restart at the low end.</dd>' +
-    '<dt>Top sets</dt><dd>Bench and squat open with one heavy set of 3–5. Log 5, or reps plus reps in reserve of 6 or more, and it goes up 5 lb (10 lb if it was very easy). Back-off sets have their own load: they start from what you last used, go up a step when every one reaches the top of their range, and never drop below their share of the top set.</dd>' +
+    '<dt>Top sets</dt><dd>Bench and squat open with one heavy set of 3–5. Log 5, or reps plus reps in reserve of 6 or more, and it goes up 5 lb (10 lb if it was very easy). As soon as you enter the top set\'s reps and reps in reserve, the back-off sets are set from the max that set implies: about 82% of it on bench and 75% on squat, rounded to 5 lb. A strong day raises them, a weak day lowers them.</dd>' +
     '<dt>Missed</dt><dd>One rep short on a top set, once, repeats the load. A second miss, or a bigger miss, sets the load from your best recent top set. A heavy single is handled the same way, so testing a max never breaks the plan.</dd>' +
     '<dt>Stalled</dt><dd>Three sessions at one load with no added reps triggers a step back, 5% on top sets and 10% on other lifts, so you can build past the sticking point.</dd>' +
     '<dt>After a jump</dt><dd>On small lifts the next dumbbell can be a big step. Landing a little under the rep range right after a jump keeps the new load and builds reps from there.</dd>' +
