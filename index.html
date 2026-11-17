@@ -357,7 +357,7 @@ var ROT = [
   { id: 'chestA', dow: 1, name: 'Chest A', tag: 'Heavy bench, then chest volume, side delts and extra triceps',
     items: [['bench', 4], ['incdb', 3], ['pecdeck', 2], ['latraise', 3], ['ohtri', 3], ['pushdownfin', 2]] },
   { id: 'backA', dow: 2, name: 'Back A', tag: 'Pulldowns and heavy rows, traps, rear delts, biceps',
-    items: [['pulldown', 4], ['dbrow', 3], ['shrug', 3], ['reardelt', 3], ['inccurl', 3], ['hammer', 3]] },
+    items: [['pulldown', 4], ['dbrow', 3], ['shrug', 3], ['reardelt', 3], ['hammer', 3], ['inccurl', 3]] },
   { id: 'legsB', dow: 3, name: 'Legs: Hinge', tag: 'Romanian deadlift day, kept moderate mid-week',
     items: [['rdl', 3], ['legext', 3], ['legcurl', 3], ['calf', 3], ['crunch', 3]] },
   { id: 'arms', dow: 4, opt: true, name: 'Biceps & Delts', tag: 'Optional and short. No triceps work, so Friday\'s bench stays fresh. Or take the rest day',
@@ -426,7 +426,7 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
-var VERSION = '17 Nov 2026, build 22';
+var VERSION = '17 Nov 2026, build 23';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
 var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
 /* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
