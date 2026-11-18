@@ -349,8 +349,8 @@ var EX = {
               cue: 'Seated rather than lying: the hip-flexed position grew the hamstrings more in Maeo 2021.' },
   calf:     { n: 'Standing Calf Raise', eq: 'machine', type: 'dp', range: [10, 15], inc: 10, rest: 75, rir: '0–1', start: 150, m: { calves: 1 },
               cue: 'Pause for a second in the deep stretch at the bottom of every rep.' },
-  crunch:   { n: 'Cable Crunch', eq: 'cable', type: 'dp', range: [10, 15], inc: 5, rest: 60, rir: '1', start: 90, m: { abs: 1 },
-              cue: 'Round the spine and bring the ribs toward the pelvis. Do not just hinge at the hips.' }
+  crunch:   { n: 'Machine Ab Crunch', eq: 'machine', type: 'dp', range: [10, 15], inc: 10, rest: 60, rir: '1', start: 70, m: { abs: 1 },
+              cue: 'Feet on the peg, back on the pad, grip the handles. Curl your ribs down toward your pelvis rather than pulling with the arms, pause briefly at the bottom, and let the weight back slowly to a full stretch. Log the weight shown on the stack.' },
 };
 
 var ROT = [
@@ -426,7 +426,7 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
-var VERSION = '17 Nov 2026, build 23';
+var VERSION = '18 Nov 2026, build 24';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
 var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
 /* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
