@@ -428,7 +428,7 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
-var VERSION = '21 Nov 2026, build 25';
+var VERSION = '21 Nov 2026, build 26';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
 var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
 /* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
@@ -1241,11 +1241,32 @@ function lineChart(host, pts, unit) {
   function leave() { cross.setAttribute('visibility', 'hidden'); tip.hidden = true; }
   svg.addEventListener('pointermove', move); svg.addEventListener('pointerdown', move); svg.addEventListener('pointerleave', leave);
 }
+/* One estimate everywhere: weight × (1 + reps ÷ 30), counting reps logged in reserve (up to 3). Sets past 10 reps
+   only count when a session has nothing heavier, because the formula drifts high there. */
+function setReps(s) { return s.r + Math.min(3, s.rir > 0 ? s.rir : 0); }
+function bestSet(sets) {
+  var pool = sets.filter(function (s) { return setReps(s) <= 10; }); if (!pool.length) pool = sets;
+  var b = null; pool.forEach(function (s) { if (!b || e1rm(s.w, setReps(s)) > e1rm(b.w, setReps(b))) b = s; });
+  return b;
+}
+var SERIES_IDS = { bench: ['bench', 'benchvol'] };   /* the bench trend covers both bench days */
 function seriesFor(exId) {
-  return hist(exId).map(function (e) {
-    var b = null; e.sets.forEach(function (s) { if (!b || e1rm(s.w, s.r) > e1rm(b.w, b.r)) b = s; });
-    return { x: dateOf(e.date).getTime(), y: e1rm(b.w, b.r), d: fmtDate(e.date), label: fmtW(b.w) + ' × ' + b.r };
+  var out = [];
+  (SERIES_IDS[exId] || [exId]).forEach(function (id) {
+    hist(id).forEach(function (e) {
+      var b = bestSet(e.sets), rr = setReps(b);
+      out.push({ date: e.date, x: dateOf(e.date).getTime(), y: e1rm(b.w, rr), low: rr === 1 ? b.w : b.w * 36 / (37 - Math.min(rr, 36)), d: fmtDate(e.date),
+        label: fmtW(b.w) + ' × ' + b.r + (rr > b.r ? ', ' + (rr - b.r) + ' left' : '') + (id === 'benchvol' ? ', Friday' : '') });
+    });
   });
+  out.sort(function (a, b) { return a.x - b.x; });
+  return out;
+}
+function currentMax(sr) {   /* best of the four weeks up to the latest session, so one flat day does not drag it down */
+  if (!sr.length) return null;
+  var cut = addDays(sr[sr.length - 1].date, -27), best = null;
+  sr.forEach(function (p) { if (p.date >= cut && (!best || p.y > best.y)) best = p; });
+  return best;
 }
 function volumeLast7() {
   var out = {}, end = todayISO(), cut = new Date(); cut.setHours(0, 0, 0, 0); cut.setDate(cut.getDate() - 6);
@@ -1303,14 +1324,8 @@ function bwHTML() {
 /* ───────────── Bench goal ───────────── */
 var GOAL = { target: 315, ids: ['bench', 'benchvol'], was: 285 };
 function goalInfo() {
-  var pts = [], heaviest = 0, heavyDate = '';
-  GOAL.ids.forEach(function (id) {
-    hist(id).forEach(function (e) {
-      var b = 0, bl = 0;
-      e.sets.forEach(function (s) { var rr = s.r + Math.min(3, s.rir || 0); if (rr <= 10 && e1rm(s.w, rr) > b) { b = e1rm(s.w, rr); bl = rr === 1 ? s.w : s.w * 36 / (37 - rr); } if (s.w > heaviest) { heaviest = s.w; heavyDate = e.date; } });
-      if (b) pts.push({ date: e.date, y: b, low: bl });   /* low = the same set read by the more cautious Brzycki formula */
-    });
-  });
+  var pts = seriesFor('bench'), heaviest = 0, heavyDate = '';   /* low = the same set read by the more cautious Brzycki formula */
+  GOAL.ids.forEach(function (id) { hist(id).forEach(function (e) { e.sets.forEach(function (s) { if (s.w > heaviest) { heaviest = s.w; heavyDate = e.date; } }); }); });
   if (!pts.length) return null;
   pts.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
   var start = pts[0].y, lastDate = pts[pts.length - 1].date, cut = addDays(lastDate, -27), cur = 0, pace = null;
@@ -1357,10 +1372,10 @@ function renderProgress() {
   html += goalHTML();
   html += '<h2 class="h-sec">Estimated one-rep max</h2><div class="tiles">' + ['bench', 'squat', 'incbb', 'rdl'].map(function (id) {
     var sr = seriesFor(id); if (!sr.length) return '';
-    var cur = sr[sr.length - 1].y, d = cur - sr[0].y;
-    return '<div class="tile"><div class="tile-k">' + esc(EX[id].n) + '</div><div class="tile-v">' + Math.round(cur) + '<small>lb</small></div>' +
-      '<div class="tile-d' + (d > 0.5 ? ' up' : '') + '">' + (sr.length < 2 ? 'Baseline, ' + esc(sr[0].label) : (d > 0.5 ? '▲ ' + Math.round(d) + ' lb since ' + esc(sr[0].d) : d < -0.5 ? '▼ ' + Math.round(-d) + ' lb since ' + esc(sr[0].d) : 'Level since ' + esc(sr[0].d))) + '</div></div>';
-  }).join('') + '</div><p class="small muted">From your best set each session: weight × (1 + reps ÷ 30). Good for tracking the trend, less exact above 10 reps.</p>';
+    var cur = currentMax(sr).y, d = Math.round(cur) - Math.round(sr[0].y);
+    return '<div class="tile"><div class="tile-k">' + esc(id === 'bench' ? 'Bench Press, both days' : EX[id].n) + '</div><div class="tile-v">' + Math.round(cur) + '<small>lb</small></div>' +
+      '<div class="tile-d' + (d > 0 ? ' up' : '') + '">' + (sr.length < 2 ? 'Baseline, ' + esc(sr[0].label) : (d > 0 ? '▲ ' + d + ' lb since ' + esc(sr[0].d) : d < 0 ? '▼ ' + (-d) + ' lb since ' + esc(sr[0].d) : 'Level since ' + esc(sr[0].d))) + '</div></div>';
+  }).join('') + '</div><p class="small muted">Your best set of the last four weeks, as weight × (1 + reps ÷ 30), counting reps logged in reserve (up to 3). Bench combines Monday and Friday, and matches the goal card. The chart below plots the best set of each session the same way.</p>';
 
   var withHist = Object.keys(EX).filter(function (id) { return hist(id).length; });
   if (withHist.indexOf(chartEx) < 0) chartEx = withHist[0];
