@@ -428,7 +428,7 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
-var VERSION = '21 Nov 2026, build 27';
+var VERSION = '21 Nov 2026, build 28';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
 var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
 /* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
@@ -697,7 +697,7 @@ function hist(exId) {
   if (BASE.entries[exId]) out.push({ date: BASE.date, sets: BASE.entries[exId], base: true });
   sorted().forEach(function (s) {
     if (s.deload) return;
-    for (var i = 0; i < s.entries.length; i++) if (s.entries[i].ex === exId && s.entries[i].sets.length) out.push({ date: s.date, sets: s.entries[i].sets, sid: s.id });
+    for (var i = 0; i < s.entries.length; i++) if (s.entries[i].ex === exId && s.entries[i].sets.length) out.push({ date: s.date, sets: s.entries[i].sets, sid: s.id, day: s.sid });
   });
   return out;
 }
@@ -716,8 +716,14 @@ function refW(sets, lo, hi) {   /* when loads were pyramided and no weight was u
 function repsAt(e, w) { return e.sets.filter(function (s) { return s.w === w; }).map(function (s) { return s.r; }); }
 function avg(a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : 0; }
 
-function plan(exId, n, deload) {
+function plan(exId, n, deload, day) {
   var ex = EX[exId], h = hist(exId), lo = ex.range[0], hi = ex.range[1];
+  /* A lift done on two days is progressed from the same day's history, because it sits at a different point in each session
+     and fatigue differs. The other day is used when this day has no recent record of the lift. */
+  if (day && h.length) {
+    var hd = h.filter(function (e) { return e.base || e.day === day; }), own = hd.filter(function (e) { return !e.base; });
+    if (own.length && own[own.length - 1].date >= addDays(h[h.length - 1].date, -21)) h = hd;   /* starting numbers always count */
+  }
   if (ex.type === 'top') { var ht = h.filter(hasTop); if (ht.length) h = ht; }   /* a day with only back-off sets does not move the top set */
   var last = h[h.length - 1], real = h.filter(function (e) { return !e.base; }).slice(-3);
   var w, status, note, tg = [];
@@ -776,6 +782,10 @@ function plan(exId, n, deload) {
       w = w0; status = 'hold';   /* small lifts cannot always land inside the range right after a jump: stay and build instead of bouncing back */
       for (i = 0; i < n; i++) tg.push(Math.min(hi, (i < reps.length ? reps[i] : reps[reps.length - 1]) + 1));
       note = (jumped ? 'A little under the range after the jump, which is expected with a step this size.' : 'Still under the range but climbing.') + ' Stay at ' + fmtW(w0) + ' and add reps.';
+    } else if (reps[0] === lo - 1 && !last.base && pv && pw === w0 && repsAt(pv, w0)[0] >= lo) {
+      w = w0; status = 'hold';   /* one rep short after a good session is a bad day, not a reason to drop the load */
+      for (i = 0; i < n; i++) tg.push(lo);
+      note = 'One rep under the range after a good session last time. Same load again; a second miss lowers it.';
     } else if (reps[0] < lo) {
       var lb0 = bestSet(atW0.length ? atW0 : last.sets);   /* counts reps in reserve, so a heavier scheme done with reps to spare is not undersold */
       w = Math.max(5, Math.min(w0 - ex.inc, rnd(e1rm(lb0.w, setReps(lb0)) / (1 + (lo + 2) / 30))));
@@ -827,12 +837,12 @@ function sinceDeload() { var s = sorted(), c = 0; for (var i = s.length - 1; i >
    One entry sheet per session. It is rebuilt from the plan until you change something;
    after that it is yours and is kept, including across reloads, until you save or clear it. */
 function hasData(d) { for (var k in d.rows) for (var i = 0; i < d.rows[k].length; i++) if (d.rows[k][i].r !== '' || d.rows[k][i].done) return true; return false; }
-function rowsFor(exId, n, deload) { return plan(exId, n, deload).rows.map(function (r) { var o = { k: r.k, w: String(r.w), r: '', rir: '', t: r.t, done: false }; if (r.tr) o.tr = r.tr; return o; }); }
+function rowsFor(exId, n, deload, day) { return plan(exId, n, deload, day).rows.map(function (r) { var o = { k: r.k, w: String(r.w), r: '', rir: '', t: r.t, done: false }; if (r.tr) o.tr = r.tr; return o; }); }
 function defaultSets(exId) { for (var i = 0; i < ROT.length; i++) for (var j = 0; j < ROT[i].items.length; j++) if (ROT[i].items[j][0] === exId) return ROT[i].items[j][1]; return 3; }
 function buildDraft(sid) {
   var sess = sessById(sid), deload = isDeload(), today = todayISO();
   var d = { sid: sess.id, date: today, started: today, deload: deload, order: [], n: {}, rows: {}, skip: {}, note: '', bw: '', touched: false, gen: gen };
-  sess.items.forEach(function (it) { d.order.push(it[0]); d.n[it[0]] = it[1]; d.rows[it[0]] = rowsFor(it[0], it[1], deload); });
+  sess.items.forEach(function (it) { d.order.push(it[0]); d.n[it[0]] = it[1]; d.rows[it[0]] = rowsFor(it[0], it[1], deload, sess.id); });
   return d;
 }
 function fixDraft(d, key) {
@@ -933,7 +943,7 @@ function pastHTML(exId) {
 }
 function cardHTML(exId, d) {
   var ex = exInfo(exId), rows = d.rows[exId] || [], n = d.n[exId] || rows.length, edit = !!d.editId;
-  var p = (!edit && EX[exId]) ? plan(exId, n, d.deload) : null;
+  var p = (!edit && EX[exId]) ? plan(exId, n, d.deload, d.sid) : null;
   var scheme = p ? schemeText(exId, n, d.deload) + ' · leave ' + (d.deload ? '4+' : ex.rir) + ' in reserve · rest ' + (ex.rest >= 120 ? (ex.rest / 60) + ' min' : ex.rest + ' s')
                  : rows.length + (rows.length === 1 ? ' set' : ' sets');
   return '<article class="card" data-card="' + exId + '">' +
@@ -1074,14 +1084,14 @@ function boFromTop(d, exId) {
   } else bo = rnd(w * ex.bo.pct);
   var changed = false;
   rows.forEach(function (x, i) { if (x.k === 'bo' && !x.we && x.r === '' && !x.done && x.w !== String(bo)) { x.w = String(bo); changed = true; var inp = $('#w-' + exId + '-' + i); if (inp) inp.value = x.w; } });
-  if (changed) { if (why) toast(why); var card = $('[data-card="' + exId + '"]'), m = card && $('.ex-meta', card); if (m) m.outerHTML = metaHTML(exId, d, plan(exId, d.n[exId] || rows.length, d.deload)); }
+  if (changed) { if (why) toast(why); var card = $('[data-card="' + exId + '"]'), m = card && $('.ex-meta', card); if (m) m.outerHTML = metaHTML(exId, d, plan(exId, d.n[exId] || rows.length, d.deload, d.sid)); }
 }
 function todayInput(e) {
   var t = e.target; if (!t || !t.id && !(t.dataset && t.dataset.f)) return;
   var d = cur();
   if (t.id === 'add-ex') {
     if (e.type === 'change' && t.value && EX[t.value] && d.order.indexOf(t.value) < 0) {
-      var id = t.value; d.order.push(id); d.n[id] = defaultSets(id); d.rows[id] = rowsFor(id, d.n[id], d.deload);
+      var id = t.value; d.order.push(id); d.n[id] = defaultSets(id); d.rows[id] = rowsFor(id, d.n[id], d.deload, d.sid);
       touch(d); relist(d);
       var c = $('[data-card="' + id + '"]'); if (c && c.scrollIntoView) c.scrollIntoView({ block: 'center' });
     }
@@ -1100,7 +1110,7 @@ function todayInput(e) {
       var ex = EX[exId];
       if (r.k === 'top') boFromTop(d, exId);
       var card = rowEl.closest('[data-card]'), m = card && $('.ex-meta', card);
-      if (m) m.outerHTML = metaHTML(exId, d, (!d.editId && EX[exId]) ? plan(exId, d.n[exId] || rows.length, d.deload) : null);
+      if (m) m.outerHTML = metaHTML(exId, d, (!d.editId && EX[exId]) ? plan(exId, d.n[exId] || rows.length, d.deload, d.sid) : null);
     }
   }
   touch(d);
@@ -1182,7 +1192,7 @@ function finish(btn) {
   var sess = sessById(d.sid), prs = [], before = {};
   c.entries.forEach(function (e) {
     var n = d.n[e.ex] || defaultSets(e.ex);
-    before[e.ex] = { w: plan(e.ex, n, false).w, n: n };
+    before[e.ex] = { w: plan(e.ex, n, false, d.sid).w, n: n };
     if (d.deload) return;
     var prev = bestE1(e.ex), now = 0; e.sets.forEach(function (x) { now = Math.max(now, e1rm(x.w, x.r)); });
     if (prev > 0 && now > prev + 0.01) prs.push(EX[e.ex].n);
@@ -1193,7 +1203,7 @@ function finish(btn) {
   delete drafts[d.sid]; saveDrafts(); gen++; saveMeta();
   var ups = [];
   if (!d.deload) c.entries.forEach(function (e) {
-    var p = plan(e.ex, before[e.ex].n, false);
+    var p = plan(e.ex, before[e.ex].n, false, d.sid);
     if (p.w > before[e.ex].w) ups.push(EX[e.ex].n + ': ' + fmtW(before[e.ex].w) + ' → ' + fmtW(p.w) + ' lb');
   });
   summary = { title: sess.name + ' saved for ' + fmtDate(s.date, true) + '.', prs: prs, ups: ups, deload: !!d.deload };
@@ -1524,7 +1534,7 @@ function renderProgram() {
   var html = '<h2 class="h-sec">The week</h2><p class="sub">Your split, kept as it is: chest, back, legs, then chest, back, legs again, with Thursday as an arm day or a rest day. Both chest days start with the bench press: heavy on Monday, volume on Friday. The app opens on the session for today, and you can pick any other.</p>';
   html += ROT.map(function (r) {
     return '<div class="card prog-sess"><h3>' + DOWF[r.dow] + ' · ' + esc(r.name) + (r.id === def ? ' <span class="chip new">Up next</span>' : '') + '</h3><p class="tagline">' + esc(r.tag) + '</p>' + r.items.map(function (it) {
-      var p = plan(it[0], it[1], deload), ex = EX[it[0]];
+      var p = plan(it[0], it[1], deload, r.id), ex = EX[it[0]];
       var load = ex.type === 'top' && !deload ? fmtW(p.rows[0].w) + ' / ' + fmtW(p.rows[1].w) + ' lb' : fmtW(p.rows[0].w) + ' lb';
       return '<div class="prog-row"><span>' + esc(ex.n) + '</span><span class="r-load">' + load + '</span><span class="r-sub">' + schemeText(it[0], it[1], deload) + (p.est ? ' · starting estimate' : '') + '</span></div>';
     }).join('') + '</div>';
@@ -1542,6 +1552,7 @@ function renderProgram() {
     '<dt>Stalled</dt><dd>Three sessions at one load with no added reps triggers a step back, 5% on top sets and 10% on other lifts, so you can build past the sticking point.</dd>' +
     '<dt>After a jump</dt><dd>On small lifts the next dumbbell can be a big step. Landing a little under the rep range right after a jump keeps the new load and builds reps from there.</dd>' +
     '<dt>Skipped</dt><dd>An exercise you skip, or a deload session, changes nothing. The next time you do the lift it picks up from your last real session.</dd>' +
+    '<dt>Two days</dt><dd>A lift you do on two days, like pec deck on Monday and Friday, is progressed from the same day\'s history, because it comes at a different point in each session and fatigue differs. If that day has no recent record, the other day\'s is used.</dd>' +
     '<dt>Other schemes</dt><dd>Everything you log is kept. If you run a lift on a different scheme, say heavy 5s or high-rep sets, the next load is worked out from what that session and your recent sessions show you can do, counting reps in reserve, and brought back to the planned rep range.</dd>' +
     '<dt>Your call</dt><dd>The weight boxes are editable. Whatever you log becomes the basis for next time, and a saved session can be corrected on the History tab.</dd></dl></div>';
 
@@ -1601,7 +1612,7 @@ function summaryText() {
   out.push('', 'NEXT PRESCRIPTIONS');
   ROT.forEach(function (r) {
     out.push(DOWF[r.dow] + ', ' + r.name);
-    r.items.forEach(function (it) { var p = plan(it[0], it[1], false); out.push('  ' + EX[it[0]].n + ': ' + fmtW(p.w) + ' lb, ' + schemeText(it[0], it[1], false) + ' [' + p.status + ']'); });
+    r.items.forEach(function (it) { var p = plan(it[0], it[1], false, r.id); out.push('  ' + EX[it[0]].n + ': ' + fmtW(p.w) + ' lb, ' + schemeText(it[0], it[1], false) + ' [' + p.status + ']'); });
   });
   return out.join('\n');
 }
