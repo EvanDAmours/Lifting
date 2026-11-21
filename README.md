@@ -45,12 +45,13 @@ At the top of the `<script>` in `index.html`:
 
 ## Progression rules
 
-- Straight sets use double progression: add reps inside the range, add load when every set
-  reaches the top of the range.
-- Bench and squat use a top set of 3–5 plus back-off sets at a fixed share of the top set.
-  The top set goes up at 5 reps, or earlier when reps plus reps-in-reserve show it was easy.
-- One rep short on a top set repeats the load once; a second or larger miss, or a heavy
-  single, sets the load from the best recent top set.
-- On other lifts a first set under the range lowers the load, except right after a jump,
-  where the new load is kept while reps build. Three flat sessions trigger a step back.
+- Straight sets use double progression: add reps inside the range; move to the next weight the
+  equipment has when the first set reaches the top and the rest are within two reps of it.
+  Hitting the top with reps to spare beyond the target jumps further, capped at about 15%.
+- A lift done on two days follows that day's own history; a heavier weight already handled on
+  the other day carries over. One rep short after a good session repeats the load once.
+- A step back needs six sessions at one load since the last deload with reps going backwards,
+  and is one equipment notch. Nothing resets straight after a deload.
+- Bench and squat use a top set of 3-5. Back-offs are set live from the top set's reps and reps
+  in reserve (82% of the implied max on bench, 75% on squat), capped at about 95% of it.
 - Deload-week sessions are logged but never change the progression.
