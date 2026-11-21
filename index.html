@@ -320,11 +320,13 @@ var EX = {
   latraise: { n: 'Lateral Raise', eq: 'db', type: 'dp', range: [12, 20], inc: 5, rest: 75, rir: '0–1', start: 20, m: { shoulders: 1 },
               cue: 'Cable or dumbbell. The rep range is wide on purpose, because the jump to the next weight is large. Take sets close to failure.' },
   reardelt: { n: 'Reverse Pec Deck', eq: 'machine', type: 'dp', range: [12, 20], inc: 5, rest: 60, rir: '0–1', start: 80, m: { shoulders: 1, back: 0.5 },
-              cue: 'Lead with the elbows and keep the traps quiet.' },
+              cue: 'Lead with the elbows and keep the traps quiet. If the machine is taken, tap Skip today and add Rear Delt Dumbbell Fly instead.' },
+  reardb:   { n: 'Rear Delt Dumbbell Fly', eq: 'db', type: 'dp', range: [12, 20], inc: 5, rest: 60, rir: '0–1', start: 20, m: { shoulders: 1, back: 0.5 },
+              cue: 'The stand-in for the reverse pec deck. Chest on an incline bench set low, or hinge over. Sweep the dumbbells out wide with soft elbows, lead with the elbows, no swinging.' },
   ohtri:    { n: 'Overhead Cable Triceps Extension', eq: 'cable', type: 'dp', range: [10, 15], inc: 5, rest: 90, rir: '0–1', start: 50, m: { triceps: 1 },
               cue: 'Face away from the stack with the rope behind your head. The overhead position trains the long head at a long muscle length, which produced more triceps growth than pushdowns in Maeo 2023.' },
-  skull:    { n: 'Barbell Skull Crusher', eq: 'bar', type: 'dp', range: [8, 12], inc: 5, rest: 90, rir: '1', m: { triceps: 1 },
-              cue: 'Lower just behind the head so the triceps are stretched at the bottom. Weight is the total bar load.' },
+  skull:    { n: 'Barbell Skull Crusher, flat', eq: 'bar', type: 'dp', range: [8, 12], inc: 10, rest: 90, rir: '1', m: { triceps: 1 },
+              cue: 'Flat bench, which is easier on the elbows than incline. Lower just behind the head so the triceps are stretched at the bottom. Fixed bars here go up in 10 lb steps, so it is fine to finish with two lighter sets: the app builds on your heavier ones. Weight is the total bar load.' },
   pushdown: { n: 'Triceps Pushdown', eq: 'cable', type: 'dp', range: [10, 15], inc: 5, rest: 75, rir: '0–1', start: 60, m: { triceps: 1 },
               cue: 'Elbows pinned to your sides, full lockout.' },
   inccurl:  { n: 'Incline Dumbbell Curl', eq: 'db', type: 'dp', range: [8, 12], inc: 5, rest: 90, rir: '0–1', start: 30, m: { biceps: 1 },
@@ -360,8 +362,8 @@ var ROT = [
     items: [['pulldown', 4], ['dbrow', 3], ['shrug', 3], ['reardelt', 3], ['hammer', 3], ['inccurl', 3]] },
   { id: 'legsB', dow: 3, name: 'Legs: Hinge', tag: 'Romanian deadlift day, kept moderate mid-week',
     items: [['rdl', 3], ['legext', 3], ['legcurl', 3], ['calf', 3], ['crunch', 3]] },
-  { id: 'arms', dow: 4, opt: true, name: 'Biceps & Delts', tag: 'Optional and short. No triceps work, so Friday\'s bench stays fresh. Or take the rest day',
-    items: [['dbcurl', 3], ['latraise', 4]] },
+  { id: 'arms', dow: 4, opt: true, name: 'Biceps & Delts', tag: 'Optional. Delts, traps and biceps, no triceps so Friday\'s bench stays fresh. Or take the rest day',
+    items: [['latraise', 4], ['shrug', 3], ['hammer', 3], ['dbcurl', 3]] },
   { id: 'chestB', dow: 5, name: 'Chest B', tag: 'Second bench day for volume, then incline and triceps',
     items: [['benchvol', 4], ['incbb', 3], ['pecdeck', 2], ['latraise', 2], ['skull', 4], ['pushdown', 2]] },
   { id: 'backB', dow: 6, name: 'Back B', tag: 'Cable row to warm up, heavy dumbbell row second, then lats and the big biceps day',
@@ -426,7 +428,7 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
-var VERSION = '18 Nov 2026, build 24';
+var VERSION = '21 Nov 2026, build 25';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
 var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
 /* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
@@ -753,7 +755,8 @@ function plan(exId, n, deload) {
   } else {
     var w0 = refW(last.sets, lo, hi), reps = repsAt(last, w0);
     var stuck2 = real.length === 3 && real.every(function (e) { return refW(e.sets, lo, hi) === w0; }) && reps[0] <= repsAt(real[0], w0)[0] && avg(reps) <= avg(repsAt(real[0], w0));
-    var allTop = last.sets.every(function (s) { return (s.w === w0 && s.r >= hi) || (s.w > w0 && s.r >= lo); });
+    var atW0 = last.sets.filter(function (s) { return s.w === w0; });   /* lighter drop sets are ignored; it takes two sets at the working weight */
+    var allTop = atW0.length >= Math.min(2, last.sets.length) && atW0.every(function (s) { return s.r >= hi; }) && last.sets.every(function (s) { return s.w <= w0 || s.r >= lo; });
     var pv = h[h.length - 2], pw = pv ? refW(pv.sets, lo, hi) : null, i;
     var jumped = pv && pw < w0 && reps[0] >= Math.ceil(lo / 2);           /* first session after a load increase */
     var building = pv && pw === w0 && avg(reps) > avg(repsAt(pv, w0));    /* same load, reps coming up */
