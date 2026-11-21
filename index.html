@@ -428,7 +428,7 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
-var VERSION = '21 Nov 2026, build 26';
+var VERSION = '21 Nov 2026, build 27';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
 var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
 /* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
@@ -758,9 +758,17 @@ function plan(exId, n, deload) {
     var atW0 = last.sets.filter(function (s) { return s.w === w0; });   /* lighter drop sets are ignored; it takes two sets at the working weight */
     var allTop = atW0.length >= Math.min(2, last.sets.length) && atW0.every(function (s) { return s.r >= hi; }) && last.sets.every(function (s) { return s.w <= w0 || s.r >= lo; });
     var pv = h[h.length - 2], pw = pv ? refW(pv.sets, lo, hi) : null, i;
-    var jumped = pv && pw < w0 && reps[0] >= Math.ceil(lo / 2);           /* first session after a load increase */
+    var jumped = pv && pw < w0 && w0 - pw <= ex.inc && reps[0] >= Math.ceil(lo / 2);   /* first session after a planned one-step increase */
     var building = pv && pw === w0 && avg(reps) > avg(repsAt(pv, w0));    /* same load, reps coming up */
-    if (allTop) {
+    /* What your recent sessions say you can do: the best set of each of the last four sessions within six weeks,
+       counting reps in reserve. Used when a session ran on a different scheme from the plan. */
+    var recent = h.filter(function (e) { return !e.base && e.date >= addDays(last.date, -41); }).slice(-4), est = 0;
+    recent.forEach(function (e) { var b = bestSet(e.sets); est = Math.max(est, e1rm(b.w, setReps(b))); });
+    var step = Math.max(5, ex.inc), toStep = function (x) { return Math.max(step, Math.round(x / step) * step); };
+    if (allTop && reps[0] > hi + 2 && est) {
+      w = Math.max(w0 + ex.inc, Math.min(toStep(est / (1 + (lo + 3) / 30)), toStep(w0 * 1.15 + 0.01))); status = 'up';
+      note = fmtW(w0) + ' × ' + reps.join(', ') + ' ran well past the ' + lo + '–' + hi + ' range, so the load is set from what your recent sessions show you can do' + (w > w0 + ex.inc ? ', more than the usual ' + ex.inc + ' lb step' : '') + '.';
+    } else if (allTop) {
       w = w0 + ex.inc; status = 'up';
       note = 'Every set reached ' + hi + ' reps at ' + fmtW(w0) + '. Add ' + ex.inc + ' lb and start again from the low end of the range.' +
         (ex.inc / w0 > (1 + hi / 30) / (1 + lo / 30) - 1 ? ' That is a big step for this lift: if your gym has ' + fmtW(w0 + ex.inc / 2) + ' lb, use it.' : '');
@@ -769,7 +777,8 @@ function plan(exId, n, deload) {
       for (i = 0; i < n; i++) tg.push(Math.min(hi, (i < reps.length ? reps[i] : reps[reps.length - 1]) + 1));
       note = (jumped ? 'A little under the range after the jump, which is expected with a step this size.' : 'Still under the range but climbing.') + ' Stay at ' + fmtW(w0) + ' and add reps.';
     } else if (reps[0] < lo) {
-      w = Math.max(5, Math.min(w0 - ex.inc, rnd(e1rm(w0, reps[0]) / (1 + (lo + 2) / 30))));
+      var lb0 = bestSet(atW0.length ? atW0 : last.sets);   /* counts reps in reserve, so a heavier scheme done with reps to spare is not undersold */
+      w = Math.max(5, Math.min(w0 - ex.inc, rnd(e1rm(lb0.w, setReps(lb0)) / (1 + (lo + 2) / 30))));
       if (last.base) { status = 'new'; note = 'Load worked out from your ' + fmtW(w0) + ' × ' + reps[0] + ' so that ' + lo + '–' + hi + ' reps is in reach.'; }
       else { status = 'down'; note = reps[0] + (reps[0] === 1 ? ' rep' : ' reps') + ' on the first set is under the ' + lo + '–' + hi + ' range. Load recalculated from that set.'; }
     } else if (stuck2) {
@@ -1533,6 +1542,7 @@ function renderProgram() {
     '<dt>Stalled</dt><dd>Three sessions at one load with no added reps triggers a step back, 5% on top sets and 10% on other lifts, so you can build past the sticking point.</dd>' +
     '<dt>After a jump</dt><dd>On small lifts the next dumbbell can be a big step. Landing a little under the rep range right after a jump keeps the new load and builds reps from there.</dd>' +
     '<dt>Skipped</dt><dd>An exercise you skip, or a deload session, changes nothing. The next time you do the lift it picks up from your last real session.</dd>' +
+    '<dt>Other schemes</dt><dd>Everything you log is kept. If you run a lift on a different scheme, say heavy 5s or high-rep sets, the next load is worked out from what that session and your recent sessions show you can do, counting reps in reserve, and brought back to the planned rep range.</dd>' +
     '<dt>Your call</dt><dd>The weight boxes are editable. Whatever you log becomes the basis for next time, and a saved session can be corrected on the History tab.</dd></dl></div>';
 
   html += '<h2 class="h-sec">Deload</h2><div class="card"><p class="sub">' + (deload ? 'Deload week is on, through ' + fmtDate(S.meta.deloadUntil, true) + '.' : 'Sessions since the last deload: ' + sinceDeload() + '. The app suggests an easy week after about ' + DELOAD_AFTER + ' sessions. Take it when you feel run down, skip it when you feel good.') + '</p>' +
