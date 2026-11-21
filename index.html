@@ -720,6 +720,7 @@ function plan(exId, n, deload, day) {
   var ex = EX[exId], h = hist(exId), lo = ex.range[0], hi = ex.range[1];
   /* A lift done on two days is progressed from the same day's history, because it sits at a different point in each session
      and fatigue differs. The other day is used when this day has no recent record of the lift. */
+  var hAll = h;
   if (day && h.length) {
     var hd = h.filter(function (e) { return e.base || e.day === day; }), own = hd.filter(function (e) { return !e.base; });
     if (own.length && own[own.length - 1].date >= addDays(h[h.length - 1].date, -21)) h = hd;   /* starting numbers always count */
@@ -798,6 +799,14 @@ function plan(exId, n, deload, day) {
       w = w0; status = 'hold';
       for (i = 0; i < n; i++) tg.push(i < reps.length ? Math.min(hi, reps[i] + 1) : Math.max(lo, Math.min(hi, reps[reps.length - 1])));
       note = 'Same load. Add a rep to at least one set. Load goes up when every set reaches ' + hi + '.';
+    }
+    /* Never start below a heavier weight you have already handled on the other day this lift appears on. */
+    if (h !== hAll) {
+      var other = hAll.filter(function (e) { return !e.base && e.day !== day; }).pop();
+      if (other && other.date > last.date) {
+        var wo = refW(other.sets, lo, hi);
+        if (wo > w && repsAt(other, wo)[0] >= lo) { w = wo; status = 'hold'; tg = []; note = 'Matched to the ' + fmtW(wo) + ' lb you handled on ' + DOWF[dateOf(other.date).getDay()] + '. Build reps from there.'; }
+      }
     }
   }
   var rows = [], k;
