@@ -142,6 +142,10 @@ h1, h2, h3, p { margin: 0; }
 .skip-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--surface); border: 1px dashed var(--line); border-radius: 12px; padding: 8px 8px 8px 14px; color: var(--ink-2); font-size: 0.92rem; }
 .skip-row span { min-width: 0; }
 .add-ex { display: flex; flex-direction: column; gap: 4px; }
+.easy-row { display: flex !important; flex-direction: row !important; align-items: flex-start; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.finish .easy-row input { width: 20px; height: 20px; padding: 0; margin: 2px 0 0; flex: none; accent-color: var(--accent); }
+.easy-row span { min-width: 0; flex: 1; }
+.easy-row b { color: var(--ink); font-weight: 600; }
 .add-ex select { color: var(--ink); font-size: 16px; }
 select.field { height: 46px; }
 .file-btn { position: relative; overflow: hidden; display: inline-flex; align-items: center; cursor: pointer; }
@@ -307,6 +311,8 @@ var EX = {
               cue: 'Lower under control to the upper chest. When all 3 sets reach 10 reps, the load goes up.' },
   incdb:    { n: 'Incline Dumbbell Press', eq: 'db', type: 'dp', range: [8, 12], inc: 5, rest: 150, rir: '1–2', m: { chest: 1, triceps: 0.5, shoulders: 0.5 },
               cue: 'Bench on setting 4. Let the dumbbells travel deep for a full stretch at the bottom.' },
+  dbfly:    { n: 'Dumbbell Fly', eq: 'db', type: 'dp', range: [10, 15], inc: 5, rest: 90, rir: '0–1', start: 35, m: { chest: 1 },
+              cue: 'Flat or slightly inclined bench, so you never wait for a machine. Slight bend in the elbows, lower until the chest is deeply stretched, then squeeze up to just short of the top, where the tension drops off. Weight is per hand.' },
   pecdeck:  { n: 'Pec Deck', eq: 'machine', type: 'dp', range: [10, 15], inc: 5, rest: 90, rir: '0–1', m: { chest: 1 },
               cue: 'Set the seat so the stretch is deep but comfortable. Safe to take the last set to failure.' },
   pulldown: { n: 'Lat Pulldown', eq: 'machine', type: 'dp', range: [8, 12], inc: 5, rest: 120, rir: '1–2', m: { back: 1, biceps: 0.5 },
@@ -322,7 +328,7 @@ var EX = {
   reardelt: { n: 'Reverse Pec Deck', eq: 'machine', type: 'dp', range: [12, 20], inc: 5, rest: 60, rir: '0–1', start: 80, m: { shoulders: 1, back: 0.5 },
               cue: 'Lead with the elbows and keep the traps quiet. If the machine is taken, tap Skip today and add Rear Delt Dumbbell Fly instead.' },
   reardb:   { n: 'Rear Delt Dumbbell Fly', eq: 'db', type: 'dp', range: [12, 20], inc: 5, rest: 60, rir: '0–1', start: 20, m: { shoulders: 1, back: 0.5 },
-              cue: 'The stand-in for the reverse pec deck. Chest on an incline bench set low, or hinge over. Sweep the dumbbells out wide with soft elbows, lead with the elbows, no swinging.' },
+              cue: 'Tuesday\'s rear-delt exercise, and the stand-in for the reverse pec deck on Saturday. Chest on an incline bench set low, or hinge over. Sweep the dumbbells out wide with soft elbows, lead with the elbows, no swinging.' },
   ohtri:    { n: 'Overhead Cable Triceps Extension', eq: 'cable', type: 'dp', range: [10, 15], inc: 5, rest: 90, rir: '0–1', start: 50, m: { triceps: 1 },
               cue: 'Face away from the stack with the rope behind your head. The overhead position trains the long head at a long muscle length, which produced more triceps growth than pushdowns in Maeo 2023.' },
   skull:    { n: 'Barbell Skull Crusher, flat', eq: 'bar', type: 'dp', range: [8, 12], inc: 10, rest: 90, rir: '1', m: { triceps: 1 },
@@ -357,15 +363,15 @@ var EX = {
 
 var ROT = [
   { id: 'chestA', dow: 1, name: 'Chest A', tag: 'Heavy bench, then chest volume, side delts and extra triceps',
-    items: [['bench', 4], ['incdb', 3], ['pecdeck', 2], ['latraise', 3], ['ohtri', 3], ['pushdownfin', 2]] },
+    items: [['bench', 4], ['incdb', 3], ['dbfly', 2], ['latraise', 3], ['ohtri', 3], ['pushdownfin', 2]] },
   { id: 'backA', dow: 2, name: 'Back A', tag: 'Pulldowns and heavy rows, traps, rear delts, biceps',
-    items: [['pulldown', 4], ['dbrow', 3], ['shrug', 3], ['reardelt', 3], ['hammer', 3], ['inccurl', 3]] },
+    items: [['pulldown', 4], ['dbrow', 3], ['shrug', 3], ['reardb', 3], ['hammer', 3], ['inccurl', 3]] },
   { id: 'legsB', dow: 3, name: 'Legs: Hinge', tag: 'Romanian deadlift day, kept moderate mid-week',
     items: [['rdl', 3], ['legext', 3], ['legcurl', 3], ['calf', 3], ['crunch', 3]] },
   { id: 'arms', dow: 4, opt: true, name: 'Biceps & Delts', tag: 'Optional. Delts, traps and biceps, no triceps so Friday\'s bench stays fresh. Or take the rest day',
     items: [['latraise', 4], ['shrug', 3], ['hammer', 3], ['dbcurl', 3]] },
   { id: 'chestB', dow: 5, name: 'Chest B', tag: 'Second bench day for volume, then incline and triceps',
-    items: [['benchvol', 4], ['incbb', 3], ['pecdeck', 2], ['latraise', 2], ['skull', 4], ['pushdown', 2]] },
+    items: [['benchvol', 4], ['incbb', 3], ['dbfly', 2], ['latraise', 2], ['skull', 4], ['pushdown', 2]] },
   { id: 'backB', dow: 6, name: 'Back B', tag: 'Cable row to warm up, heavy dumbbell row second, then lats and the big biceps day',
     items: [['cablerow', 3], ['dbrow', 3], ['pulldownb', 3], ['reardelt', 2], ['latraise', 3], ['preacher', 3], ['dbcurlfin', 3]] },
   { id: 'legsA', dow: 0, name: 'Legs: Squat', tag: 'Your main leg session, on the day you are most recovered',
@@ -428,7 +434,7 @@ function plates(w) {
 function sessById(id) { for (var i = 0; i < ROT.length; i++) if (ROT[i].id === id) return ROT[i]; return ROT[0]; }
 
 /* ───────────── State and storage ───────────── */
-var VERSION = '22 Nov 2026, build 29';
+var VERSION = '27 Nov 2026, build 30';
 var LS_KEY = 'liftledger.v1', DRAFT_KEY = 'liftledger.drafts.v1';
 var ISO = /^\d{4}-\d{2}-\d{2}$/, IDRE = /^[A-Za-z0-9_]{1,40}$/;
 /* Exercises that were in an earlier version of the plan, so old log entries still read properly. */
@@ -471,6 +477,7 @@ function cleanSession(s) {
   });
   if (!entries.length) return null;
   var out = { id: s.id, t: Number(s.t) || 0, date: s.date, sid: typeof s.sid === 'string' ? s.sid.slice(0, 40) : '', name: typeof s.name === 'string' ? s.name.slice(0, 60) : '', deload: !!s.deload, entries: entries, note: typeof s.note === 'string' ? s.note.slice(0, 2000) : '' };
+  if (s.easy) out.easy = true;
   if (Number(s.u) > 0) out.u = Number(s.u);   /* when it was last edited */
   return out;
 }
@@ -696,7 +703,7 @@ function hist(exId) {
   var out = [];
   if (BASE.entries[exId]) out.push({ date: BASE.date, sets: BASE.entries[exId], base: true });
   sorted().forEach(function (s) {
-    if (s.deload) return;
+    if (s.deload || s.easy) return;   /* deload and easy-day sessions never set future loads */
     for (var i = 0; i < s.entries.length; i++) if (s.entries[i].ex === exId && s.entries[i].sets.length) out.push({ date: s.date, sets: s.entries[i].sets, sid: s.id, day: s.sid });
   });
   return out;
@@ -862,7 +869,7 @@ function rowsFor(exId, n, deload, day) { return plan(exId, n, deload, day).rows.
 function defaultSets(exId) { for (var i = 0; i < ROT.length; i++) for (var j = 0; j < ROT[i].items.length; j++) if (ROT[i].items[j][0] === exId) return ROT[i].items[j][1]; return 3; }
 function buildDraft(sid) {
   var sess = sessById(sid), deload = isDeload(), today = todayISO();
-  var d = { sid: sess.id, date: today, started: today, deload: deload, order: [], n: {}, rows: {}, skip: {}, note: '', bw: '', touched: false, gen: gen };
+  var d = { sid: sess.id, date: today, started: today, deload: deload, easy: false, order: [], n: {}, rows: {}, skip: {}, note: '', bw: '', touched: false, gen: gen };
   sess.items.forEach(function (it) { d.order.push(it[0]); d.n[it[0]] = it[1]; d.rows[it[0]] = rowsFor(it[0], it[1], deload, sess.id); });
   return d;
 }
@@ -896,7 +903,7 @@ function fixDraft(d, key) {
   var today = todayISO(), date = (typeof d.date === 'string' && ISO.test(d.date)) ? d.date : today;
   return { sid: typeof d.sid === 'string' ? d.sid : '', editId: edit ? d.editId : undefined, name: typeof d.name === 'string' ? d.name : '', date: date,
     started: (typeof d.started === 'string' && ISO.test(d.started)) ? d.started : date, deload: !!d.deload, order: order, n: n, rows: rows, skip: skip,
-    note: typeof d.note === 'string' ? d.note : '', bw: d.bw == null ? '' : String(d.bw), touched: true, gen: 0 };
+    note: typeof d.note === 'string' ? d.note : '', bw: d.bw == null ? '' : String(d.bw), easy: !!d.easy, touched: true, gen: 0 };
 }
 function getDraft(sid) {
   var d = drafts[sid], today = todayISO();
@@ -909,7 +916,7 @@ function cur() { if (drafts.__edit) return drafts.__edit; if (!curSid) curSid = 
 function touch(d) { d.touched = true; saveDrafts(); }
 function startEdit(id) {
   var s = null; S.sessions.forEach(function (x) { if (x.id === id) s = x; }); if (!s) return;
-  var d = { editId: s.id, sid: s.sid, name: s.name || sessById(s.sid).name, date: s.date, started: todayISO(), deload: !!s.deload, order: [], n: {}, rows: {}, skip: {}, note: s.note || '', bw: '', touched: true, gen: 0 };
+  var d = { editId: s.id, sid: s.sid, name: s.name || sessById(s.sid).name, date: s.date, started: todayISO(), deload: !!s.deload, easy: !!s.easy, order: [], n: {}, rows: {}, skip: {}, note: s.note || '', bw: '', touched: true, gen: 0 };
   s.entries.forEach(function (e) {
     if (!d.rows[e.ex]) { d.rows[e.ex] = []; d.order.push(e.ex); }
     e.sets.forEach(function (x) { d.rows[e.ex].push({ k: x.k || 'work', w: String(x.w), r: String(x.r), rir: x.rir == null ? '' : String(Math.min(4, Math.round(x.rir))), t: x.r, done: true }); });
@@ -1050,7 +1057,7 @@ function renderToday() {
     if (summary) {
       html += '<div class="note-box good"><strong>' + esc(summary.title) + '</strong>' +
         (summary.prs.length ? '<span>New best: ' + esc(summary.prs.join(', ')) + '.</span>' : '') +
-        (summary.ups.length ? '<span>Going up next time:</span><ul>' + summary.ups.map(function (u) { return '<li>' + esc(u) + '</li>'; }).join('') + '</ul>' : (summary.deload ? '<span>Deload session logged. Your loads are unchanged.</span>' : '<span>Loads hold next time. Chase one more rep on each lift.</span>')) +
+        (summary.ups.length ? '<span>Going up next time:</span><ul>' + summary.ups.map(function (u) { return '<li>' + esc(u) + '</li>'; }).join('') + '</ul>' : (summary.easy ? '<span>Easy day logged. Your next loads are unchanged.</span>' : summary.deload ? '<span>Deload session logged. Your loads are unchanged.</span>' : '<span>Loads hold next time. Chase one more rep on each lift.</span>')) +
         '<div class="row-btns"><button type="button" class="btn" data-act="dismiss-summary">Got it</button></div></div>';
     }
     if (!isDeload() && sinceDeload() >= DELOAD_AFTER && S.sessions.length >= (S.meta.snooze || 0)) {
@@ -1085,6 +1092,7 @@ function renderToday() {
   html += '<div id="today-list" class="view">' + listHTML(d) + '</div>';
   html += '<div class="finish">' +
     (edit ? '' : '<label for="sess-bw">Bodyweight today, lb (optional)<input id="sess-bw" type="number" inputmode="decimal" step="any" min="0" value="' + esc(d.bw || '') + '"></label>') +
+    (d.deload ? '' : '<label class="easy-row" for="sess-easy"><input type="checkbox" id="sess-easy"' + (d.easy ? ' checked' : '') + '><span><b>Easy day</b>, kept light on purpose (tired, sore, short on time). It is logged and counts toward your weekly sets, but your next loads ignore it.</span></label>') +
     '<label for="sess-note">Notes (optional)<textarea id="sess-note" maxlength="2000" placeholder="Sleep, hip, anything worth remembering">' + esc(d.note || '') + '</textarea></label>' +
     '<button type="button" class="btn primary big" data-act="finish">' + (edit ? 'Save changes' : 'Finish and save') + '</button>' +
     (edit ? '' : '<button type="button" class="btn" data-act="clear-draft">Clear everything entered for this session</button>') + '</div>';
@@ -1120,6 +1128,7 @@ function todayInput(e) {
   }
   if (t.id === 'sess-date') { if (ISO.test(t.value)) { d.date = t.value; touch(d); } return; }
   if (t.id === 'sess-note') { d.note = t.value; touch(d); return; }
+  if (t.id === 'sess-easy') { if (e.type === 'change') { d.easy = t.checked; touch(d); } return; }
   if (t.id === 'sess-bw') { d.bw = t.value; touch(d); return; }
   var rowEl = t.closest ? t.closest('.set') : null; if (!rowEl || !t.dataset.f) return;
   var exId = rowEl.dataset.ex, rows = d.rows[exId], r = rows && rows[+rowEl.dataset.i]; if (!r) return;
@@ -1205,7 +1214,7 @@ function finish(btn) {
   if (edit) {
     var s0 = null; S.sessions.forEach(function (x) { if (x.id === d.editId) s0 = x; });
     if (!s0) { delete drafts.__edit; saveDrafts(); renderAll(); toast('That session no longer exists.'); return; }
-    s0.date = d.date; s0.entries = c.entries; s0.note = (d.note || '').slice(0, 2000); s0.u = Date.now();
+    s0.date = d.date; s0.entries = c.entries; s0.note = (d.note || '').slice(0, 2000); s0.u = Date.now(); if (d.easy) s0.easy = true; else delete s0.easy;
     delete drafts.__edit; saveDrafts(); gen++; saveMeta();
     curSid = null; summary = null; renderAll(); location.hash = '#history'; toast('Session updated.');
     return;
@@ -1219,15 +1228,16 @@ function finish(btn) {
     if (prev > 0 && now > prev + 0.01) prs.push(EX[e.ex].n);
   });
   var s = { id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), t: Date.now(), date: d.date, sid: sess.id, name: sess.name, deload: !!d.deload, entries: c.entries, note: (d.note || '').slice(0, 2000) };
+  if (d.easy && !d.deload) s.easy = true;
   S.sessions.push(s);
   if (bwv) addBW(s.date, bwv, true);
   delete drafts[d.sid]; saveDrafts(); gen++; saveMeta();
   var ups = [];
-  if (!d.deload) c.entries.forEach(function (e) {
+  if (!d.deload && !d.easy) c.entries.forEach(function (e) {
     var p = plan(e.ex, before[e.ex].n, false, d.sid);
     if (p.w > before[e.ex].w) ups.push(EX[e.ex].n + ': ' + fmtW(before[e.ex].w) + ' → ' + fmtW(p.w) + ' lb');
   });
-  summary = { title: sess.name + ' saved for ' + fmtDate(s.date, true) + '.', prs: prs, ups: ups, deload: !!d.deload };
+  summary = { title: sess.name + ' saved for ' + fmtDate(s.date, true) + '.', prs: s.easy ? [] : prs, ups: s.easy ? [] : ups, deload: !!d.deload, easy: !!s.easy };
   curSid = null;
   renderAll(); window.scrollTo(0, 0);
   if (!storageOK) toast('Not saved to this device. See the warning at the top.');
@@ -1471,7 +1481,7 @@ function bestsBySession() {
   var best = {}, out = {};
   Object.keys(BASE.entries).forEach(function (id) { best[id] = bestOfSets(BASE.entries[id]); });
   sorted().forEach(function (s) {
-    if (s.deload) return;
+    if (s.deload || s.easy) return;
     s.entries.forEach(function (e) {
       var m = bestOfSets(e.sets);
       if (best[e.ex] !== undefined && m > best[e.ex] + 0.01) { out[s.id] = out[s.id] || {}; out[s.id][e.ex] = 1; }
@@ -1525,7 +1535,7 @@ function renderHistory() {
   } else {
     html += '<div class="hist">' + ss.map(function (s) {
       var n = s.entries.reduce(function (a, e) { return a + e.sets.length; }, 0), nb = bests[s.id] ? Object.keys(bests[s.id]).length : 0;
-      return '<details id="h-' + esc(s.id) + '"><summary><span>' + fmtDate(s.date, true) + ' · ' + esc(s.name || 'Session') + (s.deload ? ' (deload)' : '') + '</span><span>' + n + ' sets' + (nb ? ' · ' + nb + (nb === 1 ? ' best' : ' bests') : '') + '</span></summary><dl>' +
+      return '<details id="h-' + esc(s.id) + '"><summary><span>' + fmtDate(s.date, true) + ' · ' + esc(s.name || 'Session') + (s.deload ? ' (deload)' : s.easy ? ' (easy day)' : '') + '</span><span>' + n + ' sets' + (nb ? ' · ' + nb + (nb === 1 ? ' best' : ' bests') : '') + '</span></summary><dl>' +
         s.entries.map(function (e) { return '<div><dt>' + esc(exInfo(e.ex).n) + (bests[s.id] && bests[s.id][e.ex] ? ' <span class="chip up">New best</span>' : '') + '</dt><dd>' + esc(fmtSets(e.sets)) + '</dd></div>'; }).join('') +
         (bwBy[s.date] ? '<div><dt>Bodyweight</dt><dd>' + bwBy[s.date] + ' lb</dd></div>' : '') +
         (s.note ? '<div><dt>Notes</dt><dd>' + esc(s.note) + '</dd></div>' : '') + '</dl>' +
@@ -1573,7 +1583,8 @@ function renderProgram() {
     '<dt>Stalled</dt><dd>On bench and squat, three sessions at one top-set load with no added rep steps back about 5%. On other lifts it takes six sessions at one load since your last deload, with your best recent reps going backwards, before stepping back one equipment notch. Holding a load while reps creep up still builds muscle, so the app is patient. Reps already at the top of the range never count against you, and nothing resets straight after a deload.</dd>' +
     '<dt>After a jump</dt><dd>On small lifts the next dumbbell can be a big step, so curls use a wide 8–15 range. Landing a little under the range right after a jump keeps the new load and builds reps from there. Hitting the top of the range with 2 or more reps to spare beyond the target moves you up by more than one step.</dd>' +
     '<dt>Skipped</dt><dd>An exercise you skip, or a deload session, changes nothing. The next time you do the lift it picks up from your last real session.</dd>' +
-    '<dt>Two days</dt><dd>A lift you do on two days, like pec deck on Monday and Friday, is progressed from the same day\'s history, because it comes at a different point in each session and fatigue differs. If that day has no recent record, the other day\'s is used.</dd>' +
+    '<dt>Two days</dt><dd>A lift you do on two days, like the dumbbell fly on Monday and Friday, is progressed from the same day\'s history, because it comes at a different point in each session and fatigue differs. If that day has no recent record, the other day\'s is used.</dd>' +
+    '<dt>Easy days</dt><dd>Tick Easy day before saving when you keep a session light on purpose. It is logged and counts toward your weekly sets, but the next loads come from your last normal session. A past session can be marked from History with Edit.</dd>' +
     '<dt>Other schemes</dt><dd>Everything you log is kept. If you run a lift on a different scheme, say heavy 5s or high-rep sets, the next load is worked out from what that session and your recent sessions show you can do, counting reps in reserve, and brought back to the planned rep range.</dd>' +
     '<dt>Your call</dt><dd>The weight boxes are editable. Whatever you log becomes the basis for next time, and a saved session can be corrected on the History tab.</dd></dl></div>';
 
@@ -1624,7 +1635,7 @@ function summaryText() {
   var ss = sorted().slice(-12);
   if (!ss.length) out.push('No sessions logged yet.');
   ss.forEach(function (s) {
-    out.push(s.date + '  ' + (s.name || s.sid) + (s.deload ? ' (deload)' : ''));
+    out.push(s.date + '  ' + (s.name || s.sid) + (s.deload ? ' (deload)' : s.easy ? ' (easy day)' : ''));
     s.entries.forEach(function (e) {
       out.push('  ' + exInfo(e.ex).n + ': ' + e.sets.map(function (x) { return fmtW(x.w) + 'x' + x.r + (x.rir != null ? ' @' + x.rir + 'RIR' : ''); }).join(', '));
     });
